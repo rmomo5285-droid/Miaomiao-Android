@@ -40,7 +40,7 @@
     "protocol": "tun",
     "settings": {
       "name": "xray0",
-      "MTU": 1500,
+      "MTU": 1280,
       "userLevel": 8
     },
     "sniffing": {

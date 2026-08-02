@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">v2rayNG</string>
+    <string name="app_name" translatable="false">喵喵</string>
     <string name="app_widget_name">Switch</string>
     <string name="app_tile_name">Switch</string>
     <string name="app_tile_first_use">First use of this feature, please use the app to add server</string>
@@ -176,7 +176,7 @@
 
     <string name="subscription_updater_job_tips">The task will run in the background, and progress information will be displayed in the notification.</string>
     <string name="title_pref_auto_test_after_update_subscription">Auto test after updating subscription</string>
-    <string name="summary_pref_auto_test_after_update_subscription">Automated testing takes a relatively long time, please be patient.</string>
+    <string name="summary_pref_auto_test_after_update_subscription">Automated testing takes a long time. If enabled, the task will run in the background; otherwise, it will run on the current page.</string>
     <string name="title_pref_auto_remove_invalid_after_test">Auto delete invalid config after testing</string>
     <string name="summary_pref_auto_remove_invalid_after_test">Test results may not be accurate; deleted config cannot be recovered.</string>
     <string name="title_pref_auto_sort_after_test">Auto sort after testing</string>
@@ -223,7 +223,7 @@
 
     <string name="title_pref_vpn_interface_address">VPN Interface Address</string>
 
-    <string name="title_pref_vpn_mtu">VPN MTU (default 1500)</string>
+    <string name="title_pref_vpn_mtu">VPN MTU (default 1280)</string>
 
 
     <string name="title_pref_domestic_dns">Domestic DNS (Optional)</string>
@@ -275,16 +275,12 @@
     <!-- AboutActivity -->
     <string name="title_pref_feedback">Feedback</string>
     <string name="summary_pref_feedback">Feedback enhancements or bugs to GitHub</string>
-    <string name="summary_pref_tg_group">Join Telegram Group</string>
-    <string name="toast_tg_app_not_found">Telegram app not found</string>
     <string name="title_privacy_policy">Privacy policy</string>
     <string name="title_qr_code">QR code</string>
     <string name="title_about">About</string>
     <string name="title_source_code">Source code</string>
     <string name="title_oss_license">Open Source licenses</string>
-    <string name="title_tg_channel">Telegram channel</string>
 
-    <string name="title_pref_promotion">Promotion</string>
 
     <string name="title_pref_auto_update_subscription">Automatic update subscriptions</string>
     <string name="summary_pref_auto_update_subscription">Update your subscriptions automatically at set intervals in the background. Depending on the device, this feature may not always work</string>
@@ -498,4 +494,52 @@
         <item>WebDAV</item>
     </string-array>
 
+    <string name="miaomiao_connected">Connected</string>
+    <string name="miaomiao_disconnected">Not connected</string>
+    <string name="miaomiao_connect">Connect</string>
+    <string name="miaomiao_disconnect">Disconnect</string>
+    <string name="miaomiao_select_node">Select a node to connect</string>
+
+    <string name="miaomiao_account_title">Account and plans</string>
+    <string name="miaomiao_login_title">Welcome back</string>
+    <string name="miaomiao_login_subtitle">Sign in to sync your plan, nodes, and notices.</string>
+    <string name="miaomiao_email">Email</string>
+    <string name="miaomiao_password">Password</string>
+    <string name="miaomiao_login">Sign in</string>
+    <string name="miaomiao_register">Create account</string>
+    <string name="miaomiao_login_cache_hint">Saved nodes remain available when the account website cannot be reached.</string>
+    <string name="miaomiao_refresh">Refresh account and nodes</string>
+    <string name="miaomiao_logout">Sign out</string>
+    <string name="miaomiao_service_active">Service active</string>
+    <string name="miaomiao_plan_id">Plan #%1$d</string>
+    <string name="miaomiao_no_plan">No active plan</string>
+    <string name="miaomiao_traffic_usage">Used %1$s of %2$s</string>
+    <string name="miaomiao_traffic_unavailable">Traffic allowance is not available.</string>
+    <string name="miaomiao_expires_at">Expires: %1$s</string>
+    <string name="miaomiao_payment_pending">Payment opened. Return here after completing it.</string>
+    <string name="miaomiao_check_payment">Check payment status</string>
+    <string name="miaomiao_plans">Plans</string>
+    <string name="miaomiao_plans_subtitle">Choose a billing cycle and continue in your browser.</string>
+    <string name="miaomiao_plans_empty">No plans are available right now.</string>
+    <string name="miaomiao_plan_traffic">%1$s traffic</string>
+    <string name="miaomiao_speed_limit">%1$d Mbps</string>
+    <string name="miaomiao_plan_unavailable">This plan is not available for purchase.</string>
+    <string name="miaomiao_purchase">Purchase</string>
+    <string name="miaomiao_purchase_price">Purchase · %1$s</string>
+    <string name="miaomiao_notices">Notices</string>
+    <string name="miaomiao_notices_subtitle">Service and account updates.</string>
+    <string name="miaomiao_notices_empty">There are no new notices.</string>
+    <string name="miaomiao_choose_payment">Choose payment method</string>
+    <string name="miaomiao_domain_updated">Service address updated</string>
+    <string name="miaomiao_cycle_month">Monthly</string>
+    <string name="miaomiao_cycle_quarter">Quarterly</string>
+    <string name="miaomiao_cycle_half_year">Half-year</string>
+    <string name="miaomiao_cycle_year">Yearly</string>
+    <string name="miaomiao_cycle_two_year">Two years</string>
+    <string name="miaomiao_cycle_three_year">Three years</string>
+    <string name="miaomiao_cycle_onetime">One-time</string>
+    <string name="miaomiao_cycle_reset">Data reset</string>
+    <string name="miaomiao_custom_subscriptions">Custom subscriptions</string>
+    <string name="miaomiao_custom_subscriptions_summary">Advanced: add and manage your own HTTPS subscription URLs.</string>
+    <string name="miaomiao_managed_subscription">Managed by account</string>
 </resources>

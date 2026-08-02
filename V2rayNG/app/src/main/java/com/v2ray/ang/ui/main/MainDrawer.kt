@@ -77,7 +77,7 @@ fun MainDrawerContent(onNavigate: (String) -> Unit) {
             }
             DrawerMenuGroup(
                 items = listOf(
-                    DrawerMenuItemData(R.drawable.ic_subscriptions_24dp, R.string.title_sub_setting, "sub_setting"),
+                    DrawerMenuItemData(R.drawable.ic_account_24dp, R.string.miaomiao_account_title, "account"),
                     DrawerMenuItemData(R.drawable.ic_per_apps_24dp, R.string.per_app_proxy_settings, "per_app_proxy"),
                     DrawerMenuItemData(R.drawable.ic_routing_24dp, R.string.routing_settings_title, "routing_setting"),
                     DrawerMenuItemData(R.drawable.ic_file_24dp, R.string.title_user_asset_setting, "user_asset"),
@@ -88,9 +88,7 @@ fun MainDrawerContent(onNavigate: (String) -> Unit) {
             AppDivider()
             DrawerMenuGroup(
                 items = listOf(
-                    DrawerMenuItemData(R.drawable.ic_promotion_24dp, R.string.title_pref_promotion, "promotion"),
                     DrawerMenuItemData(R.drawable.ic_logcat_24dp, R.string.title_logcat, "logcat"),
-                    DrawerMenuItemData(R.drawable.ic_check_update_24dp, R.string.update_check_for_update, "check_update"),
                     DrawerMenuItemData(R.drawable.ic_restore_24dp, R.string.title_configuration_backup_restore, "backup_restore"),
                     DrawerMenuItemData(R.drawable.ic_about_24dp, R.string.title_about, "about")
                 ),

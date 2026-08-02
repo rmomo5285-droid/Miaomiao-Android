@@ -556,7 +556,6 @@ object AngConfigManager {
                     return SubscriptionUpdateResult(failureCount = 1)
                 }
             }
-            LogUtil.i(AppConfig.TAG, url)
             val userAgent = it.subscription.userAgent
             val requestHeaders = it.subscription.requestHeaders
             val proxyUsername = SettingsManager.getSocksUsername()
@@ -598,9 +597,14 @@ object AngConfigManager {
             }
 
             val count = parseConfigViaSub(configText, it.guid, false)
-            if (count > 0) {
+            if (SubscriptionSchedulePolicy.isSuccessfulRefresh(count)) {
                 it.subscription.lastUpdated = System.currentTimeMillis()
                 MmkvManager.encodeSubscription(it.guid, it.subscription)
+                try {
+                    SubscriptionUpdater.syncOne(subId = it.guid)
+                } catch (e: Exception) {
+                    LogUtil.e(AppConfig.TAG, "Failed to reschedule subscription update", e)
+                }
                 LogUtil.i(AppConfig.TAG, "Subscription updated: ${it.subscription.remarks}, $count configs")
                 return SubscriptionUpdateResult(
                     configCount = count,

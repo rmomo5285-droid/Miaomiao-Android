@@ -8,6 +8,8 @@ import android.view.KeyEvent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.v2ray.ang.AngApplication
 import com.v2ray.ang.AppConfig
@@ -26,7 +28,7 @@ import com.v2ray.ang.handler.SettingsManager
 import com.v2ray.ang.ui.AboutActivity
 import com.v2ray.ang.ui.backup.BackupActivity
 import com.v2ray.ang.ui.base.HelperBaseComponentActivity
-import com.v2ray.ang.ui.checkupdate.CheckUpdateActivity
+import com.v2ray.ang.ui.account.MiaomiaoAccountActivity
 import com.v2ray.ang.ui.logcat.LogcatActivity
 import com.v2ray.ang.ui.perappproxy.PerAppProxyActivity
 import com.v2ray.ang.ui.routing.RoutingSettingActivity
@@ -43,15 +45,18 @@ import com.v2ray.ang.ui.server.ServerVlessActivity
 import com.v2ray.ang.ui.server.ServerVmessActivity
 import com.v2ray.ang.ui.server.ServerWireguardActivity
 import com.v2ray.ang.ui.settings.SettingsActivity
-import com.v2ray.ang.ui.subscription.SubSettingActivity
 import com.v2ray.ang.ui.userasset.UserAssetActivity
 import com.v2ray.ang.util.LogUtil
-import com.v2ray.ang.util.Utils
+import com.v2ray.ang.xboard.EndpointMigrationNoticeStore
+import com.v2ray.ang.xboard.MiaomiaoEndpointUpdater
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MainActivity : HelperBaseComponentActivity() {
+
+    private val migrationNotice = MutableStateFlow<String?>(null)
 
     private val mainViewModel: MainViewModel by viewModels {
         MainViewModel.Factory(application, MainRepository(application as AngApplication))
@@ -92,12 +97,15 @@ class MainActivity : HelperBaseComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         mainViewModel.onAction(MainAction.Initialize)
+        MiaomiaoEndpointUpdater.schedule(this)
+        refreshEndpointManifest()
 
         checkAndRequestPermission(PermissionType.POST_NOTIFICATIONS) {}
     }
 
     @Composable
     override fun ScreenContent() {
+        val pendingMigrationNotice by migrationNotice.collectAsStateWithLifecycle()
         MainScreen(
             mainViewModel = mainViewModel,
             onAction = { action ->
@@ -118,7 +126,30 @@ class MainActivity : HelperBaseComponentActivity() {
                 }
             },
             onNavigate = { route -> navigateTo(route) },
+            migrationNotice = pendingMigrationNotice,
+            onDismissMigrationNotice = {
+                EndpointMigrationNoticeStore.dismissPending()
+                migrationNotice.value = null
+            },
         )
+    }
+
+    override fun onResume() {
+        super.onResume()
+        migrationNotice.value = EndpointMigrationNoticeStore.pendingNotice()
+    }
+
+    private fun refreshEndpointManifest() {
+        lifecycleScope.launch {
+            MiaomiaoEndpointUpdater.refreshNow()
+            migrationNotice.value = EndpointMigrationNoticeStore.pendingNotice()
+        }
+    }
+
+    private val accountActivityLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            mainViewModel.onAction(MainAction.RefreshGroups)
+        }
     }
 
     private fun shareToClipboard(guid: String): Boolean =
@@ -135,24 +166,18 @@ class MainActivity : HelperBaseComponentActivity() {
     }
 
     private fun navigateTo(destination: String) {
+        if (destination == "account") {
+            accountActivityLauncher.launch(Intent(this, MiaomiaoAccountActivity::class.java))
+            return
+        }
         val intent = when (destination) {
-            "sub_setting" -> Intent(this, SubSettingActivity::class.java)
             "per_app_proxy" -> Intent(this, PerAppProxyActivity::class.java)
             "routing_setting" -> Intent(this, RoutingSettingActivity::class.java)
             "user_asset" -> Intent(this, UserAssetActivity::class.java)
             "settings" -> Intent(this, SettingsActivity::class.java)
             "logcat" -> Intent(this, LogcatActivity::class.java)
-            "check_update" -> Intent(this, CheckUpdateActivity::class.java)
             "backup_restore" -> Intent(this, BackupActivity::class.java)
             "about" -> Intent(this, AboutActivity::class.java)
-            "promotion" -> {
-                Utils.openUri(
-                    this,
-                    "${Utils.decode(AppConfig.APP_PROMOTION_URL)}?t=${System.currentTimeMillis()}"
-                )
-                return
-            }
-
             else -> return
         }
         settingsActivityLauncher.launch(intent)

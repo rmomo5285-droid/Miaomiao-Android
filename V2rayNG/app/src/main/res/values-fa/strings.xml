@@ -211,7 +211,7 @@
     <string name="title_pref_vpn_bypass_lan">آیا VPN از شبکه محلی عبور می کند؟</string>
 
     <string name="title_pref_vpn_interface_address">آدرس واسط VPN</string>
-    <string name="title_pref_vpn_mtu">VPN MTU (default 1500)</string>
+    <string name="title_pref_vpn_mtu">VPN MTU (default 1280)</string>
 
     <string name="title_pref_domestic_dns">DNS داخلی (اختیاری)</string>
     <string name="summary_pref_domestic_dns">DNS</string>
@@ -261,16 +261,12 @@
     <!-- AboutActivity -->
     <string name="title_pref_feedback">بازخورد</string>
     <string name="summary_pref_feedback">بازخورد یا گزارش اشکالات در گیت‌ هاب</string>
-    <string name="summary_pref_tg_group">عضویت در گروه تلگرام</string>
-    <string name="toast_tg_app_not_found">برنامه تلگرام پیدا نشد</string>
 
     <string name="title_privacy_policy">حریم خصوصی</string>
     <string name="title_qr_code">QR code</string>
     <string name="title_about">درباره</string>
     <string name="title_source_code">کد منبع</string>
     <string name="title_oss_license">مجوز های منبع باز</string>
-    <string name="title_tg_channel">کانال تلگرام</string>
-    <string name="title_pref_promotion">تبلیغات</string>
 
     <string name="title_pref_auto_update_subscription">به‌ روزرسانی خودکار اشتراک ها</string>
     <string name="summary_pref_auto_update_subscription">اشتراک های خود را به طور خودکار با فاصله زمانی در پس زمینه به روز کنید. بسته به دستگاه، این ویژگی ممکن است همیشه کار نکند.</string>

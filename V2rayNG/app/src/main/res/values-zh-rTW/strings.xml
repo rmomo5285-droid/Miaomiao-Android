@@ -170,7 +170,7 @@
 
     <string name="subscription_updater_job_tips">任務將在背景運行，在通知中會顯示進度資訊</string>
     <string name="title_pref_auto_test_after_update_subscription">更新訂閱後自動測試</string>
-    <string name="summary_pref_auto_test_after_update_subscription">自動測試需要比較長的時間，請耐心等待</string>
+    <string name="summary_pref_auto_test_after_update_subscription">自動測試需要較長的時間，開啟後任務將在後台運行；不開啟則在目前頁面運行</string>
     <string name="title_pref_auto_remove_invalid_after_test">測試後自動刪除無效配置</string>
     <string name="summary_pref_auto_remove_invalid_after_test">測試結果可能不準確且已刪除的配置無法復原</string>
     <string name="title_pref_auto_sort_after_test">測試後自動排序</string>
@@ -216,7 +216,7 @@
     <string name="title_pref_vpn_bypass_lan">VPN 是否繞過區域網</string>
 
     <string name="title_pref_vpn_interface_address">VPN 介面位址</string>
-    <string name="title_pref_vpn_mtu">VPN MTU (預設 1500)</string>
+    <string name="title_pref_vpn_mtu">VPN MTU (預設 1280)</string>
 
     <string name="summary_pref_domestic_dns">DNS</string>
     <string name="title_pref_domestic_dns">境内 DNS (可选)</string>
@@ -266,16 +266,12 @@
     <!-- AboutActivity -->
     <string name="title_pref_feedback">意見回饋</string>
     <string name="summary_pref_feedback">前往 GitHub 回報錯誤</string>
-    <string name="summary_pref_tg_group">加入 Telegram 群組</string>
-    <string name="toast_tg_app_not_found">未找到 Telegram 應用程式</string>
     <string name="title_privacy_policy">隱私權政策</string>
     <string name="title_qr_code">QR 碼</string>
     <string name="title_about">關於</string>
     <string name="title_source_code">原始碼</string>
     <string name="title_oss_license">Open Source licenses</string>
-    <string name="title_tg_channel">Telegram 頻道</string>
 
-    <string name="title_pref_promotion">推廣</string>
 
     <string name="title_pref_auto_update_subscription">自動更新訂閱</string>
     <string name="summary_pref_auto_update_subscription">在後台以一定時間間隔自動更新您的訂閱。受設備影響，此功能不一定總是有效</string>

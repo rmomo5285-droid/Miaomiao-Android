@@ -38,6 +38,7 @@ fun MainTopBar(
     onSearchClose: () -> Unit,
     onSearchToggle: (Boolean) -> Unit,
     onMenuClick: () -> Unit,
+    onAccountClick: () -> Unit,
     onAction: (MainAction) -> Unit,
     onDelAllConfig: () -> Unit,
     onDelDuplicateConfig: () -> Unit,
@@ -52,7 +53,7 @@ fun MainTopBar(
     val maxMenuHeight = LocalConfiguration.current.screenHeightDp.dp - statusBarHeight - navBarHeight - 20.dp
 
     AppTopBar(
-        title = stringResource(R.string.title_server),
+        title = stringResource(R.string.app_name),
         onBackClick = {},
         isLoading = isLoading,
         isSearchActive = showSearch,
@@ -73,6 +74,12 @@ fun MainTopBar(
         },
         actions = {
             if (!showSearch) {
+                IconButton(onClick = onAccountClick) {
+                    Icon(
+                        painterResource(R.drawable.ic_account_24dp),
+                        contentDescription = stringResource(R.string.miaomiao_account_title),
+                    )
+                }
                 IconButton(onClick = { onSearchToggle(true) }) {
                     Icon(painterResource(R.drawable.ic_search_24dp), contentDescription = "filter")
                 }

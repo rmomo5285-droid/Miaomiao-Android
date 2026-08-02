@@ -213,7 +213,7 @@
     <string name="title_pref_vpn_bypass_lan">VPN ز شبکه مهلی اگوڌرته؟</string>
 
     <string name="title_pref_vpn_interface_address">نشۊوی رابت VPN</string>
-    <string name="title_pref_vpn_mtu">VPN MTU (پؽش فرز 1500)</string>
+    <string name="title_pref_vpn_mtu">VPN MTU (پؽش فرز 1280)</string>
 
     <string name="title_pref_domestic_dns">DNS منی (اختیاری)</string>
     <string name="summary_pref_domestic_dns">DNS</string>
@@ -263,16 +263,12 @@
     <!-- AboutActivity -->
     <string name="title_pref_feedback">فشناڌن منشڌ</string>
     <string name="summary_pref_feedback">فشناڌن منشڌ یا گوزارش موشکلا من Github</string>
-    <string name="summary_pref_tg_group">ٱووڌن من بونکۊ تلگرام</string>
-    <string name="toast_tg_app_not_found">برنومه تلگرامن نجوست</string>
     <string name="title_privacy_policy">هریم سیخومی</string>
     <string name="title_qr_code">QR code</string>
     <string name="title_about">زبار</string>
     <string name="title_source_code">کود بونچک</string>
     <string name="title_oss_license">موجوزا کود بونچک</string>
-    <string name="title_tg_channel">تورگه تلگرام</string>
 
-    <string name="title_pref_promotion">تبلیقات</string>
 
     <string name="title_pref_auto_update_subscription">ورۊ کردن خوتکار اشتراکا</string>
     <string name="summary_pref_auto_update_subscription">اشتراکا خوتووݩ ن و تۉر خوتکار وا فاسله زمۊوی من پس زمینه ورۊ کۊنین. ای ویژیی من پوی دسگایل گاشڌ همیشه کار نکونه</string>

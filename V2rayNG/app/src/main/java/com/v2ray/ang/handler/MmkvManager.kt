@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import com.tencent.mmkv.MMKV
+import com.v2ray.ang.AppConfig
 import com.v2ray.ang.AppConfig.DEFAULT_SUBSCRIPTION_ID
 import com.v2ray.ang.AppConfig.PREF_IS_BOOTED
 import com.v2ray.ang.AppConfig.PREF_ROUTING_RULESET
@@ -425,6 +426,8 @@ object MmkvManager {
      * @param subid The subscription ID.
      */
     fun removeSubscription(subid: String) {
+        if (subid == AppConfig.MIAOMIAO_MANAGED_SUBSCRIPTION_ID) return
+
         subStorage.remove(subid)
         val subsList = decodeSubsList()
         subsList.remove(subid)
@@ -439,7 +442,7 @@ object MmkvManager {
      * @param guid The subscription GUID.
      * @param subItem The subscription item.
      */
-    fun encodeSubscription(guid: String, subItem: SubscriptionItem) {
+    fun encodeSubscription(guid: String, subItem: SubscriptionItem): String {
         val key = guid.ifBlank { Utils.getUuid() }
         subStorage.encode(key, JsonUtil.toJson(subItem))
 
@@ -448,6 +451,7 @@ object MmkvManager {
             subsList.add(key)
             encodeSubsList(subsList)
         }
+        return key
     }
 
     /**

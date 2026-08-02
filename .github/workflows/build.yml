@@ -1,162 +1,369 @@
-name: Build APK
+name: Miaomiao Android CI and release
 
 on:
   workflow_dispatch:
     inputs:
       release_tag:
+        description: Optional stable release tag, for example v2.3.1
         required: false
         type: string
   push:
     branches:
-      - master
+      - main
+  pull_request:
+    branches:
+      - main
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: miaomiao-android-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  ANDROID_BUILD_TOOLS: 37.0.0
+  ANDROID_NDK_VERSION: 29.0.14206865
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    name: Test and build signed APKs
+    runs-on: ubuntu-24.04
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v7
-      with:
-        submodules: 'recursive'
-        fetch-depth: '0'
-
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v4
-      with:
-        log-accepted-android-sdk-licenses: false
-        cmdline-tools-version: '14742923'
-        packages: 'platforms;android-37.0 build-tools;37.0.0 platform-tools'
-
-    - name: Install NDK
-      run: |
-        echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
-          --channel=0 \
-          --install "ndk;29.0.14206865"
-        echo "NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865" >> $GITHUB_ENV
-        sed -i '10i\
-        \
-            ndkVersion = "29.0.14206865"' ${{ github.workspace }}/V2rayNG/app/build.gradle.kts
-
-    - name: Restore cached libhevtun
-      id: cache-libhevtun-restore
-      uses: actions/cache/restore@v6
-      with:
-        path: ${{ github.workspace }}/libs
-        key: libhevtun-${{ runner.os }}-${{ env.NDK_HOME }}-${{ hashFiles('.git/modules/hev-socks5-tunnel/HEAD') }}-${{ hashFiles('compile-hevtun.sh') }}
-
-    - name: Build libhevtun
-      if: steps.cache-libhevtun-restore.outputs.cache-hit != 'true'
-      run: |
-        bash compile-hevtun.sh
-    
-    - name: Save libhevtun
-      if: steps.cache-libhevtun-restore.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v6
-      with:
-        path: ${{ github.workspace }}/libs
-        key: libhevtun-${{ runner.os }}-${{ env.NDK_HOME }}-${{ hashFiles('.git/modules/hev-socks5-tunnel/HEAD') }}-${{ hashFiles('compile-hevtun.sh') }}
-
-    - name: Copy libhevtun
-      run: |
-        cp -r ${{ github.workspace }}/libs ${{ github.workspace }}/V2rayNG/app
-
-    - name: Fetch AndroidLibXrayLite tag
-      run: |
-        pushd AndroidLibXrayLite
-        CURRENT_TAG=$(git describe --tags --abbrev=0)
-        echo "Current tag in this repo: $CURRENT_TAG"
-        echo "CURRENT_TAG=$CURRENT_TAG" >> $GITHUB_ENV
-        popd
-
-    - name: Download libv2ray
-      uses: robinraju/release-downloader@v1.13
-      with:
-        repository: '2dust/AndroidLibXrayLite'
-        tag: ${{ env.CURRENT_TAG }}
-        fileName: 'libv2ray.aar'
-        out-file-path: V2rayNG/app/libs/
-
-    - name: Setup Java
-      uses: actions/setup-java@v5.6.0
-      with:
-        distribution: 'temurin'
-        java-version: '21'
-
-    - name: Decode Keystore
-      uses: timheuer/base64-to-file@v2.0.0
-      id: android_keystore
-      with:
-        fileName: "android_keystore.jks"
-        encodedString: ${{ secrets.APP_KEYSTORE_BASE64 }}
-
-    - name: Build APK
-      run: |
-        cd ${{ github.workspace }}/V2rayNG
-        echo "sdk.dir=${ANDROID_HOME}" > local.properties
-        chmod 755 gradlew
-        ./gradlew licenseFdroidReleaseReport
-        ./gradlew assembleRelease -Pandroid.injected.signing.store.file=${{ steps.android_keystore.outputs.filePath }} -Pandroid.injected.signing.store.password=${{ secrets.APP_KEYSTORE_PASSWORD }} -Pandroid.injected.signing.key.alias=${{ secrets.APP_KEYSTORE_ALIAS }} -Pandroid.injected.signing.key.password=${{ secrets.APP_KEY_PASSWORD }}
-    
-    - name: Upload arm64-v8a APK
-      uses: actions/upload-artifact@v7
-      if: ${{  success() }}
-      with:
-        name: arm64-v8a
-        path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*arm64-v8a*.apk
-
-    - name: Upload armeabi-v7a APK
-      uses: actions/upload-artifact@v7
-      if: ${{  success() }}
-      with:
-        name: armeabi-v7a
-        path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*armeabi-v7a*.apk
-
-    - name: Upload x86 APK
-      uses: actions/upload-artifact@v7
-      if: ${{  success() }}
-      with:
-        name: x86-apk
-        path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*x86*.apk
-
-    - name: Upload universal APK
-      uses: actions/upload-artifact@v7
-      if: ${{ success() }}
-      with:
-        name: universal-apk
-        path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/release/*universal*.apk
-
-  sign-and-release:
-    needs: build
-    runs-on: ubuntu-26.04
-    if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
-
-    steps:
-      - name: Download APK artifacts
-        uses: actions/download-artifact@v8
+      - name: Checkout exact workflow commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          path: release
+          ref: ${{ github.sha }}
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Sign APK files
+      - name: Verify checkout and submodules
+        id: source
+        shell: bash
         run: |
-          printf '%s' "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
-          KEY=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')
-          mkdir -p release-files
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          if git submodule status --recursive | grep -Eq '^[+-]'; then
+            echo 'A submodule is missing or not at the recorded commit.' >&2
+            exit 1
+          fi
+          printf 'hev_commit=%s\n' "$(git -C hev-socks5-tunnel rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-          find release -type f -name '*.apk' | while read apk; do
-            cp "$apk" release-files/
-            gpg --batch --yes --local-user "$KEY" --detach-sign --output "release-files/$(basename "$apk").sig" "$apk"
+      - name: Set up pinned Java
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
+        with:
+          log-accepted-android-sdk-licenses: false
+          cmdline-tools-version: '14742923'
+          packages: 'platforms;android-37 build-tools;37.0.0 platform-tools'
+
+      - name: Install pinned NDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'y\n' | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            --channel=0 --install "ndk;$ANDROID_NDK_VERSION"
+          printf 'NDK_HOME=%s/ndk/%s\n' "$ANDROID_HOME" "$ANDROID_NDK_VERSION" >> "$GITHUB_ENV"
+
+      - name: Restore cached libhevtun
+        id: cache-libhevtun-restore
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ github.workspace }}/libs
+          key: libhevtun-${{ runner.os }}-${{ env.ANDROID_NDK_VERSION }}-${{ steps.source.outputs.hev_commit }}-${{ hashFiles('compile-hevtun.sh') }}
+
+      - name: Build libhevtun
+        if: steps.cache-libhevtun-restore.outputs.cache-hit != 'true'
+        shell: bash
+        run: bash compile-hevtun.sh
+
+      - name: Save libhevtun
+        if: steps.cache-libhevtun-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ github.workspace }}/libs
+          key: libhevtun-${{ runner.os }}-${{ env.ANDROID_NDK_VERSION }}-${{ steps.source.outputs.hev_commit }}-${{ hashFiles('compile-hevtun.sh') }}
+
+      - name: Stage native dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf V2rayNG/app/libs
+          cp -a libs V2rayNG/app/
+
+      - name: Verify and download pinned libv2ray
+        shell: bash
+        run: |
+          set -euo pipefail
+          source .github/dependency-locks/android-libxraylite.env
+          [[ "$(git -C AndroidLibXrayLite rev-parse HEAD)" == "$ANDROID_LIB_XRAY_LITE_COMMIT" ]]
+          [[ "$ANDROID_LIB_XRAY_LITE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$ANDROID_LIB_XRAY_LITE_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$ANDROID_LIB_XRAY_MODULE" == "github.com/xtls/xray-core" ]]
+          grep -Fqx $'\t'"$ANDROID_LIB_XRAY_MODULE $ANDROID_LIB_XRAY_VERSION" AndroidLibXrayLite/go.mod
+          mkdir -p V2rayNG/app/libs
+          curl --fail --location --proto '=https' --tlsv1.2 --retry 3 --retry-all-errors \
+            --output V2rayNG/app/libs/libv2ray.aar \
+            "https://github.com/2dust/AndroidLibXrayLite/releases/download/${ANDROID_LIB_XRAY_LITE_TAG}/libv2ray.aar"
+          printf '%s  %s\n' "$ANDROID_LIB_XRAY_LITE_SHA256" \
+            V2rayNG/app/libs/libv2ray.aar | sha256sum --check --strict
+
+      - name: Run unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd V2rayNG
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > local.properties
+          chmod 0755 gradlew
+          ./gradlew --no-daemon test
+
+      - name: Assemble unsigned verification APK
+        if: github.event_name != 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd V2rayNG
+          ./gradlew --no-daemon assemblePlaystoreDebug
+
+      - name: Decode Miaomiao keystore
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.MIAOMIAO_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          [[ -n "$KEYSTORE_BASE64" ]] || { echo 'MIAOMIAO_ANDROID_KEYSTORE_BASE64 is required.' >&2; exit 1; }
+          keystore="$RUNNER_TEMP/miaomiao-android-release.p12"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          chmod 0600 "$keystore"
+          printf 'MIAOMIAO_KEYSTORE_PATH=%s\n' "$keystore" >> "$GITHUB_ENV"
+
+      - name: Validate Miaomiao signing identity
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.MIAOMIAO_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.MIAOMIAO_ANDROID_KEY_ALIAS }}
+          EXPECTED_SHA256: ${{ secrets.MIAOMIAO_ANDROID_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          for value in KEYSTORE_PASSWORD KEY_ALIAS EXPECTED_SHA256; do
+            [[ -n "${!value:-}" ]] || { echo "Missing Android signing secret: $value" >&2; exit 1; }
+          done
+          expected="$(printf '%s' "$EXPECTED_SHA256" | tr -d ' :' | tr '[:upper:]' '[:lower:]')"
+          [[ "$expected" =~ ^[0-9a-f]{64}$ ]]
+          details="$(keytool -J-Duser.language=en -list -v -keystore "$MIAOMIAO_KEYSTORE_PATH" \
+            -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS")"
+          actual="$(printf '%s\n' "$details" | awk -F': ' '/SHA256:/{gsub(":", "", $2); print tolower($2); exit}')"
+          owner="$(printf '%s\n' "$details" | awk -F': ' '/^Owner:/{print $2; exit}')"
+          [[ "$actual" == "$expected" ]]
+          printf '%s' "$owner" | grep -Fqi 'Miaomiao' || {
+            echo "Android signing certificate owner is not branded Miaomiao: $owner" >&2
+            exit 1
+          }
+
+      - name: Build signed production APKs
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.MIAOMIAO_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.MIAOMIAO_ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.MIAOMIAO_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [[ -n "$KEY_PASSWORD" ]] || { echo 'MIAOMIAO_ANDROID_KEY_PASSWORD is required.' >&2; exit 1; }
+          cd V2rayNG
+          ./gradlew --no-daemon licensePlaystoreReleaseReport assemblePlaystoreRelease \
+            -Pandroid.injected.signing.store.file="$MIAOMIAO_KEYSTORE_PATH" \
+            -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+
+      - name: Verify every APK signer and output set
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          EXPECTED_SHA256: ${{ secrets.MIAOMIAO_ANDROID_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          apk_dir="V2rayNG/app/build/outputs/apk/playstore/release"
+          mapfile -d '' apks < <(find "$apk_dir" -maxdepth 1 -type f -name 'miaomiao_*.apk' -print0 | sort -z)
+          [[ "${#apks[@]}" -eq 5 ]] || {
+            echo "Expected five production APKs, found ${#apks[@]}." >&2
+            printf '%s\n' "${apks[@]}" >&2
+            exit 1
+          }
+          expected="$(printf '%s' "$EXPECTED_SHA256" | tr -d ' :' | tr '[:upper:]' '[:lower:]')"
+          apksigner="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner"
+          for apk in "${apks[@]}"; do
+            "$apksigner" verify --verbose --print-certs "$apk" > "$RUNNER_TEMP/apksigner.txt"
+            actual="$(awk -F': ' '/Signer #1 certificate SHA-256 digest:/{gsub(":", "", $2); print tolower($2); exit}' "$RUNNER_TEMP/apksigner.txt")"
+            [[ "$actual" == "$expected" ]] || {
+              echo "Unexpected APK signer for $apk" >&2
+              exit 1
+            }
           done
 
-          gpg --armor --export "$KEY" > release-files/v2rayN-public-key.asc
+      - name: Remove temporary signing material
+        if: always() && github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: rm -f "${MIAOMIAO_KEYSTORE_PATH:-}" "$RUNNER_TEMP/apksigner.txt"
 
-      - name: Upload APKs, signatures and public key to release
-        uses: svenstaro/upload-release-action@v2
+      - name: Upload arm64-v8a APK
+        if: success() && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          file: release-files/*
-          tag: ${{ inputs.release_tag }}
-          file_glob: true
-          prerelease: true
+          name: miaomiao-android-arm64-v8a
+          path: V2rayNG/app/build/outputs/apk/playstore/release/miaomiao_*_arm64-v8a.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload armeabi-v7a APK
+        if: success() && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: miaomiao-android-armeabi-v7a
+          path: V2rayNG/app/build/outputs/apk/playstore/release/miaomiao_*_armeabi-v7a.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload x86 APK
+        if: success() && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: miaomiao-android-x86
+          path: V2rayNG/app/build/outputs/apk/playstore/release/miaomiao_*_x86.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload x86_64 APK
+        if: success() && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: miaomiao-android-x86_64
+          path: V2rayNG/app/build/outputs/apk/playstore/release/miaomiao_*_x86_64.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload universal APK
+        if: success() && github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: miaomiao-android-universal
+          path: V2rayNG/app/build/outputs/apk/playstore/release/miaomiao_*_universal.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Publish signed Android release
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Checkout exact workflow commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate release tag
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          [[ "$(git rev-parse HEAD)" == "$GITHUB_SHA" ]]
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo 'Release tag must be a stable semantic version such as v2.3.1.' >&2
+            exit 1
+          }
+          version="$(sed -nE 's/^[[:space:]]*versionName = "([^"]+)".*/\1/p' V2rayNG/app/build.gradle.kts)"
+          [[ -n "$version" && "$RELEASE_TAG" == "v$version" ]] || {
+            echo "Release tag $RELEASE_TAG does not match Android version $version." >&2
+            exit 1
+          }
+          if git show-ref --verify --quiet "refs/tags/$RELEASE_TAG"; then
+            [[ "$(git rev-list -n 1 "$RELEASE_TAG")" == "$GITHUB_SHA" ]] || {
+              echo "Existing tag $RELEASE_TAG does not point to $GITHUB_SHA." >&2
+              exit 1
+            }
+          fi
+
+      - name: Download APK artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: miaomiao-android-*
+          path: downloaded
+
+      - name: Create checksums and Miaomiao signatures
+        shell: bash
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.MIAOMIAO_RELEASE_GPG_PRIVATE_KEY }}
+          EXPECTED_FINGERPRINT: ${{ secrets.MIAOMIAO_RELEASE_GPG_FINGERPRINT }}
+          GPG_PASSPHRASE: ${{ secrets.MIAOMIAO_RELEASE_GPG_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          [[ -n "$GPG_PRIVATE_KEY" && -n "$EXPECTED_FINGERPRINT" && -n "$GPG_PASSPHRASE" ]] || {
+            echo 'Miaomiao release GPG key, fingerprint, and passphrase secrets are required.' >&2
+            exit 1
+          }
+          mkdir -p release-files "$RUNNER_TEMP/miaomiao-gnupg"
+          chmod 0700 "$RUNNER_TEMP/miaomiao-gnupg"
+          passphrase_file="$RUNNER_TEMP/miaomiao-gpg-passphrase"
+          umask 077
+          printf '%s' "$GPG_PASSPHRASE" > "$passphrase_file"
+          find downloaded -type f -name '*.apk' -exec cp {} release-files/ \;
+          mapfile -t apks < <(find release-files -maxdepth 1 -type f -name '*.apk' | sort)
+          [[ "${#apks[@]}" -eq 5 ]]
+
+          printf '%s' "$GPG_PRIVATE_KEY" | gpg --homedir "$RUNNER_TEMP/miaomiao-gnupg" --batch --import
+          key="$(gpg --homedir "$RUNNER_TEMP/miaomiao-gnupg" --batch --with-colons \
+            --list-secret-keys | awk -F: '/^fpr:/{print $10; exit}')"
+          expected="$(printf '%s' "$EXPECTED_FINGERPRINT" | tr -d ' :' | tr '[:lower:]' '[:upper:]')"
+          [[ "$expected" =~ ^[0-9A-F]{40}$|^[0-9A-F]{64}$ ]]
+          [[ -n "$key" && "$key" == "$expected" ]]
+          gpg --homedir "$RUNNER_TEMP/miaomiao-gnupg" --batch --list-keys "$key" | grep -Fqi Miaomiao || {
+            echo 'The release GPG identity is not branded Miaomiao.' >&2
+            exit 1
+          }
+
+          cd release-files
+          sha256sum ./*.apk | sort -k2 > SHA256SUMS
+          gpg --homedir "$RUNNER_TEMP/miaomiao-gnupg" --batch --yes \
+            --pinentry-mode loopback --passphrase-file "$passphrase_file" --armor \
+            --local-user "$key" --detach-sign SHA256SUMS
+          for apk in ./*.apk; do
+            gpg --homedir "$RUNNER_TEMP/miaomiao-gnupg" --batch --yes \
+              --pinentry-mode loopback --passphrase-file "$passphrase_file" --armor \
+              --local-user "$key" --detach-sign "$apk"
+          done
+          gpg --homedir "$RUNNER_TEMP/miaomiao-gnupg" --armor --export "$key" \
+            > miaomiao-release-public-key.asc
+
+      - name: Create or update GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --target "$GITHUB_SHA" \
+              --title "Miaomiao $RELEASE_TAG" --generate-notes
+          fi
+          gh release upload "$RELEASE_TAG" release-files/* --clobber
+
+      - name: Remove temporary GPG material
+        if: always()
+        shell: bash
+        run: rm -rf "$RUNNER_TEMP/miaomiao-gnupg" "$RUNNER_TEMP/miaomiao-gpg-passphrase"

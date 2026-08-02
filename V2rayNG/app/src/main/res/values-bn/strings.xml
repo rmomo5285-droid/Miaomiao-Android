@@ -213,7 +213,7 @@
     <string name="title_pref_vpn_bypass_lan">Does VPN bypass LAN</string>
 
     <string name="title_pref_vpn_interface_address">VPN Interface Address</string>
-    <string name="title_pref_vpn_mtu">VPN MTU (default 1500)</string>
+    <string name="title_pref_vpn_mtu">VPN MTU (default 1280)</string>
 
     <string name="title_pref_domestic_dns">ঘরোয়া DNS (ঐচ্ছিক)</string>
     <string name="summary_pref_domestic_dns">DNS</string>
@@ -263,16 +263,12 @@
     <!-- AboutActivity -->
     <string name="title_pref_feedback">মতামত</string>
     <string name="summary_pref_feedback">মতামত উন্নয়ন বা বাগগুলি GitHub-এ পাঠান</string>
-    <string name="summary_pref_tg_group">টেলিগ্রাম গ্রুপে যোগদান করুন</string>
-    <string name="toast_tg_app_not_found">টেলিগ্রাম অ্যাপ পাওয়া যায়নি</string>
     <string name="title_privacy_policy">গোপনীয়তা নীতি</string>
     <string name="title_qr_code">QR code</string>
     <string name="title_about">সম্পর্কিত</string>
     <string name="title_source_code">সোর্স কোড</string>
     <string name="title_oss_license">Open Source licenses</string>
-    <string name="title_tg_channel">টেলিগ্রাম চ্যানেল</string>
 
-    <string name="title_pref_promotion">প্রচার</string>
 
     <string name="title_pref_auto_update_subscription">স্বয়ংক্রিয় আপডেট সাবস্ক্রিপশন</string>
     <string name="summary_pref_auto_update_subscription">পটভূমিতে একটি নির্দিষ্ট সময় পর পর আপনার সাবস্ক্রিপশন স্বয়ংক্রিয়ভাবে আপডেট করুন। ডিভাইসের উপর নির্ভর করে, এই বৈশিষ্ট্যটি সবসময় কাজ নাও করতে পারে</string>

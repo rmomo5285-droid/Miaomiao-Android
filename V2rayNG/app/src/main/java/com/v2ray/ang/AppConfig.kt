@@ -51,6 +51,10 @@ object AppConfig {
     const val PREF_OBSERVATORY_LEAST_LOAD_TIMEOUT = "pref_observatory_least_load_timeout"
     const val SUBSCRIPTION_UPDATE_TASK_NAME = "subscription_updater"
     const val SUBSCRIPTION_MIN_INTERVAL_MINUTES = 15L
+    const val SUBSCRIPTION_DEFAULT_INTERVAL_MINUTES = 2880L
+    const val MIAOMIAO_MANAGED_SUBSCRIPTION_ID = "miaomiao-managed"
+    const val PREF_MIAOMIAO_PENDING_TRADE_NO = "pref_miaomiao_pending_trade_no"
+    const val PREF_MIAOMIAO_PENDING_PAYMENT_PHASE = "pref_miaomiao_pending_payment_phase"
     const val PREF_SPEED_ENABLED = "pref_speed_enabled"
     const val PREF_CONFIRM_REMOVE = "pref_confirm_remove"
     const val PREF_DOUBLE_COLUMN_DISPLAY = "pref_double_column_display"
@@ -77,7 +81,6 @@ object AppConfig {
     const val PREF_ROOT_MODE_ENABLE = "pref_root_mode_enabled"
     const val PREF_ROOT_LAN_SHARING = "pref_root_lan_sharing"
     const val PREF_IS_BOOTED = "pref_is_booted"
-    const val PREF_CHECK_UPDATE_PRE_RELEASE = "pref_check_update_pre_release"
     const val PREF_GEO_FILES_SOURCES = "pref_geo_files_sources"
     const val PREF_USE_HEV_TUNNEL = "pref_use_hev_tunnel_v2"
     const val PREF_HEV_TUNNEL_LOGLEVEL = "pref_hev_tunnel_loglevel"
@@ -125,13 +128,6 @@ object AppConfig {
     const val GITHUB_RAW_URL = "https://raw.githubusercontent.com"
     const val GITHUB_DOWNLOAD_URL = "$GITHUB_URL/%s/releases/latest/download"
     const val ANDROID_PACKAGE_NAME_LIST_URL = "$GITHUB_RAW_URL/2dust/androidpackagenamelist/master/proxy.txt"
-    const val APP_URL = "$GITHUB_URL/2dust/v2rayNG"
-    const val APP_API_URL = "https://api.github.com/repos/2dust/v2rayNG/releases"
-    const val APP_ISSUES_URL = "$APP_URL/issues"
-    const val APP_WIKI_MODE = "$APP_URL/wiki/Mode"
-    const val APP_PRIVACY_POLICY = "$GITHUB_RAW_URL/2dust/v2rayNG/master/CR.md"
-    const val APP_PROMOTION_URL = "aHR0cHM6Ly85LjIzNDQ1Ni54eXovYWJjLmh0bWw="
-    const val TG_CHANNEL_URL = "https://t.me/github_2dust"
     const val DELAY_TEST_URL = "https://www.gstatic.com/generate_204"
     const val DELAY_TEST_URL2 = "https://www.google.com/generate_204"
     const val OBSERVATORY_LEAST_PING_INTERVAL = "3m"
@@ -212,7 +208,7 @@ object AppConfig {
 
     /** Give a good name to this, IDK*/
     const val VPN = "VPN"
-    const val VPN_MTU = 1500
+    const val VPN_MTU = 1280
 
     /** Root (system-wide) mode runtime constants. */
     const val ROOT_RUNTIME_DIR = "sys_cache"

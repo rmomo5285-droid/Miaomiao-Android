@@ -1,5 +1,6 @@
 package com.v2ray.ang.ui.settings
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Column
@@ -38,7 +39,7 @@ import com.v2ray.ang.ui.compose.SettingsMenuItem
 import com.v2ray.ang.ui.compose.SettingsSwitchItem
 import com.v2ray.ang.ui.compose.ThemeManager
 import com.v2ray.ang.ui.compose.verticalScrollbar
-import com.v2ray.ang.util.Utils
+import com.v2ray.ang.ui.subscription.SubSettingActivity
 
 class SettingsActivity : BaseComponentActivity() {
 
@@ -53,7 +54,9 @@ class SettingsActivity : BaseComponentActivity() {
         SettingsScreen(
             viewModel = viewModel,
             onBackClick = { finish() },
-            onModeHelpClicked = { Utils.openUri(this, AppConfig.APP_WIKI_MODE) }
+            onAdvancedSubscriptions = {
+                startActivity(Intent(this, SubSettingActivity::class.java))
+            },
         )
     }
 }
@@ -63,7 +66,7 @@ class SettingsActivity : BaseComponentActivity() {
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onBackClick: () -> Unit,
-    onModeHelpClicked: () -> Unit
+    onAdvancedSubscriptions: () -> Unit,
 ) {
     val scrollState = rememberScrollState()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
@@ -574,6 +577,11 @@ fun SettingsScreen(
                 onExpandedChange = { advancedSettingsExpanded = it }
             )
             if (advancedSettingsExpanded) {
+                SettingsMenuItem(
+                    title = stringResource(R.string.miaomiao_custom_subscriptions),
+                    subtitle = stringResource(R.string.miaomiao_custom_subscriptions_summary),
+                    onClick = onAdvancedSubscriptions,
+                )
                 SettingsSwitchItem(
                     title = stringResource(R.string.title_pref_is_booted),
                     summary = stringResource(R.string.summary_pref_is_booted),
@@ -610,10 +618,6 @@ fun SettingsScreen(
                     values = modeValues,
                     selectedValue = mode,
                     onSelected = { mode = it }
-                )
-                SettingsMenuItem(
-                    title = stringResource(R.string.title_mode_help),
-                    onClick = onModeHelpClicked
                 )
                 SettingsSwitchItem(
                     title = stringResource(R.string.title_root_mode_enabled),

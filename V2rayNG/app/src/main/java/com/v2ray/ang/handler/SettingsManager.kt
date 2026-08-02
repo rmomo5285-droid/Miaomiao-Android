@@ -239,6 +239,8 @@ object SettingsManager {
      * it creates a new default subscription to ensure that ungroup
      **/
     fun removeSubscriptionWithDefault(subid: String) {
+        if (subid == AppConfig.MIAOMIAO_MANAGED_SUBSCRIPTION_ID) return
+
         SubscriptionUpdater.cancelOne(subId = subid)
         // Remove the subscription
         removeSubscription(subid)
@@ -429,7 +431,7 @@ object SettingsManager {
      * Get the VPN MTU from settings, defaulting to AppConfig.VPN_MTU.
      */
     fun getVpnMtu(): Int {
-        return Utils.parseInt(MmkvManager.decodeSettingsString(AppConfig.PREF_VPN_MTU), AppConfig.VPN_MTU)
+        return VpnMtuPolicy.normalize(MmkvManager.decodeSettingsString(AppConfig.PREF_VPN_MTU))
     }
 
     /**

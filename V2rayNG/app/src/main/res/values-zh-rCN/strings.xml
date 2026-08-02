@@ -171,7 +171,7 @@
 
     <string name="subscription_updater_job_tips">任务将在后台运行，在通知中会显示进度信息</string>
     <string name="title_pref_auto_test_after_update_subscription">更新订阅后自动测试</string>
-    <string name="summary_pref_auto_test_after_update_subscription">自动测试需要比较长的时间，请耐心等待</string>
+    <string name="summary_pref_auto_test_after_update_subscription">自动测试需要比较长的时间，开启后任务将在后台运行；不开启则在当前页面运行</string>
     <string name="title_pref_auto_remove_invalid_after_test">测试后自动删除无效配置</string>
     <string name="summary_pref_auto_remove_invalid_after_test">测试结果可能不准确且已删除的配置无法恢复</string>
     <string name="title_pref_auto_sort_after_test">测试后自动排序</string>
@@ -216,7 +216,7 @@
     <string name="title_pref_vpn_bypass_lan">VPN 是否绕过局域网</string>
 
     <string name="title_pref_vpn_interface_address">VPN 接口地址</string>
-    <string name="title_pref_vpn_mtu">VPN MTU (默认 1500)</string>
+    <string name="title_pref_vpn_mtu">VPN MTU (默认 1280)</string>
 
     <string name="title_pref_domestic_dns">境内 DNS (可选)</string>
     <string name="summary_pref_domestic_dns">DNS</string>
@@ -267,16 +267,12 @@
     <!-- AboutActivity -->
     <string name="title_pref_feedback">反馈</string>
     <string name="summary_pref_feedback">反馈改进或漏洞至 GitHub</string>
-    <string name="summary_pref_tg_group">加入 Telegram Group</string>
-    <string name="toast_tg_app_not_found">未找到 Telegram app</string>
     <string name="title_privacy_policy">隐私权政策</string>
     <string name="title_qr_code">二维码</string>
     <string name="title_about">关于</string>
     <string name="title_source_code">源代码</string>
     <string name="title_oss_license">Open Source licenses</string>
-    <string name="title_tg_channel">Telegram 频道</string>
 
-    <string name="title_pref_promotion">推广</string>
 
     <string name="title_pref_auto_update_subscription">自动更新订阅</string>
     <string name="summary_pref_auto_update_subscription">在后台按一定时间间隔自动更新您的订阅。受设备影响，此功能不一定总是有效</string>
@@ -485,4 +481,52 @@
         <item>WebDAV</item>
     </string-array>
 
+    <string name="miaomiao_connected">已安全连接</string>
+    <string name="miaomiao_disconnected">未连接</string>
+    <string name="miaomiao_connect">连接</string>
+    <string name="miaomiao_disconnect">断开</string>
+    <string name="miaomiao_select_node">请选择节点后连接</string>
+
+    <string name="miaomiao_account_title">账户与套餐</string>
+    <string name="miaomiao_login_title">欢迎回来</string>
+    <string name="miaomiao_login_subtitle">登录后同步套餐、节点和最新公告。</string>
+    <string name="miaomiao_email">邮箱</string>
+    <string name="miaomiao_password">密码</string>
+    <string name="miaomiao_login">登录</string>
+    <string name="miaomiao_register">注册账户</string>
+    <string name="miaomiao_login_cache_hint">账户网站暂时无法访问时，已保存的节点仍可继续使用。</string>
+    <string name="miaomiao_refresh">刷新账户与节点</string>
+    <string name="miaomiao_logout">退出登录</string>
+    <string name="miaomiao_service_active">服务已开通</string>
+    <string name="miaomiao_plan_id">套餐 #%1$d</string>
+    <string name="miaomiao_no_plan">暂无生效套餐</string>
+    <string name="miaomiao_traffic_usage">已用 %1$s，共 %2$s</string>
+    <string name="miaomiao_traffic_unavailable">暂未获取到流量额度。</string>
+    <string name="miaomiao_expires_at">到期时间：%1$s</string>
+    <string name="miaomiao_payment_pending">支付页面已打开，完成后返回此处即可。</string>
+    <string name="miaomiao_check_payment">查询订单状态</string>
+    <string name="miaomiao_plans">套餐</string>
+    <string name="miaomiao_plans_subtitle">选择周期后在系统浏览器中完成支付。</string>
+    <string name="miaomiao_plans_empty">当前暂无可购买套餐。</string>
+    <string name="miaomiao_plan_traffic">%1$s 流量</string>
+    <string name="miaomiao_speed_limit">%1$d Mbps</string>
+    <string name="miaomiao_plan_unavailable">该套餐暂不可购买。</string>
+    <string name="miaomiao_purchase">购买</string>
+    <string name="miaomiao_purchase_price">购买 · %1$s</string>
+    <string name="miaomiao_notices">公告</string>
+    <string name="miaomiao_notices_subtitle">服务与账户相关更新。</string>
+    <string name="miaomiao_notices_empty">当前没有新公告。</string>
+    <string name="miaomiao_choose_payment">选择支付方式</string>
+    <string name="miaomiao_domain_updated">服务地址已更新</string>
+    <string name="miaomiao_cycle_month">月付</string>
+    <string name="miaomiao_cycle_quarter">季付</string>
+    <string name="miaomiao_cycle_half_year">半年付</string>
+    <string name="miaomiao_cycle_year">年付</string>
+    <string name="miaomiao_cycle_two_year">两年付</string>
+    <string name="miaomiao_cycle_three_year">三年付</string>
+    <string name="miaomiao_cycle_onetime">一次性</string>
+    <string name="miaomiao_cycle_reset">流量重置</string>
+    <string name="miaomiao_custom_subscriptions">自定义订阅</string>
+    <string name="miaomiao_custom_subscriptions_summary">高级功能：添加和管理自己的 HTTPS 订阅地址。</string>
+    <string name="miaomiao_managed_subscription">账户托管</string>
 </resources>

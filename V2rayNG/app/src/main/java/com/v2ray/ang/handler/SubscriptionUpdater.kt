@@ -43,7 +43,11 @@ object SubscriptionUpdater {
             }
 
         MmkvManager.decodeSubscriptions()
-            .filter { it.subscription.autoUpdate && it.subscription.url.isNotEmpty() }
+            .filter {
+                it.subscription.enabled &&
+                    it.subscription.autoUpdate &&
+                    it.subscription.url.isNotEmpty()
+            }
             .forEach { sub ->
                 scheduleOne(
                     context = context,
@@ -78,17 +82,6 @@ object SubscriptionUpdater {
             .cancelUniqueWork(taskName(subId))
     }
 
-    /**
-     * Update the last updated timestamp and reschedule the task.
-     * This is used to reset the periodic timer and prevent rapid rescheduling loops.
-     */
-    fun updateLastUpdatedAndReschedule(context: Context = AngApplication.application, subId: String) {
-        val subItem = MmkvManager.decodeSubscription(subId) ?: return
-        subItem.lastUpdated = System.currentTimeMillis()
-        MmkvManager.encodeSubscription(subId, subItem)
-        syncOne(context, subId)
-    }
-
     // -------------------------------------------------------------------------
     // Internal scheduling logic
     // -------------------------------------------------------------------------
@@ -102,7 +95,7 @@ object SubscriptionUpdater {
     ) {
         val subItem = MmkvManager.decodeSubscription(subId) ?: return
         val rw = RemoteWorkManager.getInstance(context)
-        if (!subItem.autoUpdate) {
+        if (!subItem.enabled || !subItem.autoUpdate) {
             cancelOne(context, subId)
             LogUtil.d(AppConfig.TAG, "SubscriptionUpdater: cancelled task for ${subItem.remarks}")
             return
@@ -113,25 +106,15 @@ object SubscriptionUpdater {
             return
         }
 
-        val intervalMinutes = maxOf(
-            AppConfig.SUBSCRIPTION_MIN_INTERVAL_MINUTES,
+        val intervalMinutes = SubscriptionSchedulePolicy.normalizeIntervalMinutes(
             subItem.updateInterval
         )
-
-        // Base initial delay on the last successful update time persisted in subscription.
-        val lastUpdated = subItem.lastUpdated
-        val intervalMillis = intervalMinutes * 60 * 1000L
-        val now = System.currentTimeMillis()
-        var initialDelayMillis = if (lastUpdated <= 0L) {
-            0L
-        } else {
-            maxOf(0L, lastUpdated + intervalMillis - now)
-        }
-
-        // Add a small floor to initial delay to prevent rapid rescheduling loops.
-        if (existingWorkPolicy == ExistingPeriodicWorkPolicy.REPLACE && initialDelayMillis < 5000L) {
-            initialDelayMillis = 5000L
-        }
+        val initialDelayMillis = SubscriptionSchedulePolicy.calculateInitialDelayMillis(
+            lastSuccessfulUpdateMillis = subItem.lastUpdated,
+            intervalMinutes = intervalMinutes,
+            nowMillis = System.currentTimeMillis(),
+            forceReschedule = existingWorkPolicy == ExistingPeriodicWorkPolicy.REPLACE
+        )
 
         val request = PeriodicWorkRequestBuilder<UpdateTask>(intervalMinutes, TimeUnit.MINUTES)
             .setConstraints(
@@ -175,8 +158,6 @@ object SubscriptionUpdater {
                 LogUtil.w(AppConfig.TAG, "SubscriptionUpdater: missing subId in worker input")
                 return Result.success()
             }
-
-            updateLastUpdatedAndReschedule(applicationContext, subId)
 
             MessageHelper.sendMsg2SubscriptionService(
                 applicationContext,

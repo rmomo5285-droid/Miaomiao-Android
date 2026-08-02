@@ -77,6 +77,10 @@ class SubEditActivity : BaseComponentActivity() {
     }
 
     private fun saveServer(subItem: SubscriptionItem): Boolean {
+        if (editSubId == AppConfig.MIAOMIAO_MANAGED_SUBSCRIPTION_ID) {
+            toast(R.string.miaomiao_managed_subscription)
+            return false
+        }
 
         if (TextUtils.isEmpty(subItem.remarks)) {
             toast(R.string.sub_setting_remarks)
@@ -100,8 +104,8 @@ class SubEditActivity : BaseComponentActivity() {
             return false
         }
 
-        MmkvManager.encodeSubscription(editSubId, subItem)
-        SubscriptionUpdater.syncOne(subId = editSubId)
+        val savedSubId = MmkvManager.encodeSubscription(editSubId, subItem)
+        SubscriptionUpdater.syncOne(subId = savedSubId)
         SettingsChangeManager.makeSetupGroupTab()
         toastSuccess(R.string.toast_success)
         finish()
@@ -109,6 +113,10 @@ class SubEditActivity : BaseComponentActivity() {
     }
 
     private fun deleteServer(): Boolean {
+        if (editSubId == AppConfig.MIAOMIAO_MANAGED_SUBSCRIPTION_ID) {
+            toast(R.string.miaomiao_managed_subscription)
+            return false
+        }
         if (editSubId.isNotEmpty()) {
             lifecycleScope.launch(Dispatchers.IO) {
                 SettingsManager.removeSubscriptionWithDefault(editSubId)
