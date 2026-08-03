@@ -148,11 +148,21 @@ object Utils {
                 }
             }
 
+            // Strip brackets and an optional port from bracketed IPv6 addresses.
+            if (addr.startsWith("[")) {
+                val closingBracket = addr.indexOf(']')
+                if (closingBracket <= 1) return false
+                val suffix = addr.substring(closingBracket + 1)
+                if (suffix.isNotEmpty()) {
+                    val port = suffix.removePrefix(":").takeIf { suffix.startsWith(":") }?.toIntOrNull()
+                    if (port == null || port !in 0..65535) return false
+                }
+                addr = addr.substring(1, closingBracket)
+            }
+
             // Handle IPv4-mapped IPv6 addresses
             if (addr.startsWith("::ffff:") && '.' in addr) {
                 addr = addr.drop(7)
-            } else if (addr.startsWith("[::ffff:") && '.' in addr) {
-                addr = addr.drop(8).replace("]", "")
             }
 
             val octets = addr.split('.')
@@ -461,21 +471,6 @@ object Utils {
     fun isXray(): Boolean = BuildConfig.IS_XRAY_CORE
 
     /**
-     * Converts an InetAddress to its long representation
-     *
-     * @param ip The InetAddress to convert
-     * @return The long representation of the IP address
-     */
-    private fun inetAddressToLong(ip: InetAddress): Long {
-        val bytes = ip.address
-        var result: Long = 0
-        for (i in bytes.indices) {
-            result = result shl 8 or (bytes[i].toInt() and 0xff).toLong()
-        }
-        return result
-    }
-
-    /**
      * Check if an IP address is within a CIDR range
      *
      * @param ip The IP address to check
@@ -483,26 +478,28 @@ object Utils {
      * @return True if the IP is within the CIDR range, false otherwise
      */
     fun isIpInCidr(ip: String, cidr: String): Boolean {
-        try {
-            if (!isIpAddress(ip)) return false
+        val parts = cidr.split("/")
+        if (parts.size != 2 || !isPureIpAddress(ip) || !isPureIpAddress(parts[0])) return false
+        val prefixLength = parts[1].toIntOrNull() ?: return false
 
-            // Parse CIDR (e.g., "192.168.1.0/24")
-            val (cidrIp, prefixLen) = cidr.split("/")
-            val prefixLength = prefixLen.toInt()
+        return runCatching {
+            val ipBytes = InetAddress.getByName(ip).address
+            val networkBytes = InetAddress.getByName(parts[0]).address
+            if (ipBytes.size != networkBytes.size || prefixLength !in 0..(ipBytes.size * 8)) {
+                return false
+            }
 
-            // Convert IP and CIDR's IP portion to Long
-            val ipLong = inetAddressToLong(InetAddress.getByName(ip))
-            val cidrIpLong = inetAddressToLong(InetAddress.getByName(cidrIp))
+            val completeBytes = prefixLength / 8
+            for (index in 0 until completeBytes) {
+                if (ipBytes[index] != networkBytes[index]) return false
+            }
 
-            // Calculate subnet mask (e.g., /24 → 0xFFFFFF00)
-            val mask = if (prefixLength == 0) 0L else (-1L shl (32 - prefixLength))
-
-            // Check if they're in the same subnet
-            return (ipLong and mask) == (cidrIpLong and mask)
-        } catch (e: Exception) {
-            LogUtil.e(AppConfig.TAG, "Failed to check if IP is in CIDR", e)
-            return false
-        }
+            val remainingBits = prefixLength % 8
+            if (remainingBits == 0) return true
+            val mask = (0xff shl (8 - remainingBits)) and 0xff
+            (ipBytes[completeBytes].toInt() and mask) ==
+                (networkBytes[completeBytes].toInt() and mask)
+        }.getOrDefault(false)
     }
 
     /**

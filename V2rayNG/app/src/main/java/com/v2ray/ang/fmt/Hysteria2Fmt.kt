@@ -26,7 +26,6 @@ object Hysteria2Fmt : FmtBase() {
         config.serverPort = uri.port.toString()
         config.password = uri.userInfo
         config.security = AppConfig.TLS
-        config.network = NetworkType.HYSTERIA.type
 
         if (!uri.rawQuery.isNullOrEmpty()) {
             val queryParam = getQueryParam(uri)
@@ -39,6 +38,9 @@ object Hysteria2Fmt : FmtBase() {
             config.pinnedCA256 = queryParam["pinSHA256"]
 
         }
+
+        // The shared query parser defaults an absent `type` parameter to TCP.
+        config.network = NetworkType.HYSTERIA.type
 
         return config
     }

@@ -27,7 +27,7 @@ class EndpointManifestTest {
         assertNotNull(raw)
 
         val verified = EndpointManifestVerifier(
-            nowProvider = { Instant.parse("2026-08-02T00:00:00Z") },
+            nowProvider = { Instant.parse("2026-08-03T00:00:00Z") },
         ).verify(raw!!)
 
         assertEquals(2L, verified.payload.version)
@@ -54,7 +54,7 @@ class EndpointManifestTest {
 
         assertThrows(EndpointManifestException::class.java) {
             EndpointManifestVerifier(
-                nowProvider = { Instant.parse("2026-08-02T00:00:00Z") },
+                nowProvider = { Instant.parse("2026-08-03T00:00:00Z") },
             ).verify(gson.toJson(tampered))
         }
     }
@@ -66,7 +66,7 @@ class EndpointManifestTest {
 
         val error = assertThrows(EndpointManifestException::class.java) {
             EndpointManifestVerifier(
-                nowProvider = { Instant.parse("2027-08-02T00:00:00Z") },
+                nowProvider = { Instant.parse("2027-08-03T00:00:00Z") },
             ).verify(raw)
         }
         assertTrue(error.message.orEmpty().contains("expired"))
@@ -197,6 +197,7 @@ class EndpointManifestTest {
     fun retainsExpiredSignedCacheAsLastKnownGoodWhenRefreshFails() {
         val fixture = SigningFixture()
         val expired = fixture.payload(version = 2).copy(
+            issuedAt = "2026-06-01T00:00:00Z",
             expiresAt = "2026-07-01T00:00:00Z",
             apiEndpoints = listOf("https://replacement.example.com"),
             bootstrapMirrors = listOf("https://replacement-config.example.com/manifest.json"),

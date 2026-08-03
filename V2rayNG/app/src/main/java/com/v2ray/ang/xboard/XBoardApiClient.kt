@@ -371,7 +371,7 @@ class XBoardApiClient(
 
     private fun parseResponse(response: Response): JsonElement {
         val raw = readResponseText(response)
-        return try {
+        val parsed = try {
             gson.fromJson(raw, JsonElement::class.java)
         } catch (error: Exception) {
             throw XBoardApiException(
@@ -380,6 +380,10 @@ class XBoardApiClient(
                 cause = error,
             )
         } ?: throw XBoardApiException("XBoard response was empty", response.code)
+        if (!parsed.isJsonObject) {
+            throw XBoardApiException("XBoard response was not a JSON object", response.code)
+        }
+        return parsed
     }
 
     private fun responseErrorMessage(response: Response): String {
