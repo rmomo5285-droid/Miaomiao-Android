@@ -47,6 +47,7 @@ import com.v2ray.ang.ui.server.ServerWireguardActivity
 import com.v2ray.ang.ui.settings.SettingsActivity
 import com.v2ray.ang.ui.userasset.UserAssetActivity
 import com.v2ray.ang.util.LogUtil
+import com.v2ray.ang.util.Utils
 import com.v2ray.ang.xboard.EndpointMigrationNoticeStore
 import com.v2ray.ang.xboard.MiaomiaoEndpointUpdater
 import kotlinx.coroutines.Dispatchers
@@ -150,7 +151,6 @@ class MainActivity : HelperBaseComponentActivity() {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             mainViewModel.onAction(MainAction.RefreshGroups)
         }
-    }
 
     private fun shareToClipboard(guid: String): Boolean =
         AngConfigManager.share2Clipboard(this, guid) == 0

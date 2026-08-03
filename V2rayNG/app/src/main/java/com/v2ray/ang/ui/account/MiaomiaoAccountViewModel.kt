@@ -5,8 +5,8 @@ import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.v2ray.ang.AppConfig
-import com.v2ray.ang.dto.SubscriptionCache
 import com.v2ray.ang.dto.entities.SubscriptionItem
+import com.v2ray.ang.dto.entities.SubscriptionCache
 import com.v2ray.ang.handler.AngConfigManager
 import com.v2ray.ang.handler.MmkvManager
 import com.v2ray.ang.handler.SubscriptionUpdater
@@ -53,7 +53,9 @@ data class MiaomiaoAccountUiState(
 class MiaomiaoAccountViewModel(application: Application) : AndroidViewModel(application) {
     private val endpointRepository = EndpointManifestRepository()
     private val accountRepository = XBoardRepository(
-        service = XBoardApiClient { endpointRepository.current().apiEndpoints },
+        service = XBoardApiClient(
+            endpointProvider = { endpointRepository.current().apiEndpoints },
+        ),
     )
     private val mutableUiState = MutableStateFlow(
         MiaomiaoAccountUiState(
