@@ -28,7 +28,7 @@ class EndpointManifestTest {
         assertNotNull(raw)
 
         val verified = EndpointManifestVerifier(
-            nowProvider = { Instant.parse("2026-08-03T00:00:00Z") },
+            nowProvider = { Instant.parse("2026-08-03T08:00:00Z") },
         ).verify(raw!!)
 
         assertEquals(3L, verified.payload.version)
@@ -67,7 +67,7 @@ class EndpointManifestTest {
 
         val error = assertThrows(EndpointManifestException::class.java) {
             EndpointManifestVerifier(
-                nowProvider = { Instant.parse("2027-08-03T00:00:00Z") },
+                nowProvider = { Instant.parse("2027-08-04T00:00:00Z") },
             ).verify(raw)
         }
         assertTrue(error.message.orEmpty().contains("expired"))
