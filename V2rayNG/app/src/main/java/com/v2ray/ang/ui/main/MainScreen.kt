@@ -35,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.ui.compose.QRCodeDialog
+import com.v2ray.ang.xboard.EndpointClientUpdate
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -47,6 +48,9 @@ fun MainScreen(
     onNavigate: (String) -> Unit,
     migrationNotice: String? = null,
     onDismissMigrationNotice: () -> Unit = {},
+    clientUpdate: EndpointClientUpdate? = null,
+    onOpenClientUpdate: (EndpointClientUpdate) -> Unit = {},
+    onDismissClientUpdate: () -> Unit = {},
 ) {
     val uiState by mainViewModel.uiState.collectAsStateWithLifecycle()
     val groups = uiState.groups
@@ -199,6 +203,35 @@ fun MainScreen(
             confirmButton = {
                 TextButton(onClick = onDismissMigrationNotice) {
                     Text(stringResource(android.R.string.ok))
+                }
+            },
+        )
+    }
+    if (migrationNotice == null && clientUpdate != null) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!clientUpdate.required) onDismissClientUpdate()
+            },
+            title = { Text(clientUpdate.title) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.update_new_version_found, clientUpdate.version))
+                    Text(
+                        text = clientUpdate.message,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { onOpenClientUpdate(clientUpdate) }) {
+                    Text(stringResource(R.string.update_now))
+                }
+            },
+            dismissButton = {
+                if (!clientUpdate.required) {
+                    TextButton(onClick = onDismissClientUpdate) {
+                        Text(stringResource(R.string.miaomiao_update_later))
+                    }
                 }
             },
         )

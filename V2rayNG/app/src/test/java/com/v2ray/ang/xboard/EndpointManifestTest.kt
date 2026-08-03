@@ -2,6 +2,7 @@ package com.v2ray.ang.xboard
 
 import com.google.gson.Gson
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -30,7 +31,7 @@ class EndpointManifestTest {
             nowProvider = { Instant.parse("2026-08-03T00:00:00Z") },
         ).verify(raw!!)
 
-        assertEquals(2L, verified.payload.version)
+        assertEquals(3L, verified.payload.version)
         assertEquals(
             listOf("https://www.miaonetwork.com", "https://www.vpnmiao.com"),
             verified.payload.apiEndpoints,
@@ -39,7 +40,7 @@ class EndpointManifestTest {
             "https://download.vpnmiao.com/download/index.html",
             verified.payload.downloadPageUrl,
         )
-        assertEquals("https://cdn.vpnmiao.com/json", verified.payload.bootstrapMirrors.first())
+        assertEquals("https://cdn.vpnmiao.com/manifest.json", verified.payload.bootstrapMirrors.first())
     }
 
     @Test
@@ -87,6 +88,125 @@ class EndpointManifestTest {
         val verified = fixture.verifier.verify(fixture.envelope(payload))
 
         assertEquals(notice, verified.payload.migrationNotice)
+    }
+
+    @Test
+    fun verifiesOptionalClientUpdatesAndBuildComparison() {
+        val fixture = SigningFixture()
+        val androidUpdate = EndpointClientUpdate(
+            version = "2.3.2",
+            build = 742,
+            downloadUrl = "https://download.example.com/download/android",
+            required = false,
+            title = "发现新版本",
+            message = "喵喵客户端有新版本可用。",
+        )
+        val desktopUpdate = EndpointClientUpdate(
+            version = "7.24.4",
+            build = 72404,
+            downloadUrl = "https://download.example.com/download/desktop",
+            required = true,
+            title = "Desktop update",
+            message = "A newer desktop client is available.",
+        )
+        val payload = fixture.payload(version = 2).copy(
+            updates = EndpointManifestUpdates(
+                android = androidUpdate,
+                desktop = desktopUpdate,
+            ),
+        )
+
+        val verified = fixture.verifier.verify(fixture.envelope(payload))
+
+        assertEquals(androidUpdate, verified.payload.updates?.android)
+        assertEquals(desktopUpdate, verified.payload.updates?.desktop)
+        assertTrue(androidUpdate.isNewerThan(741))
+        assertFalse(androidUpdate.isNewerThan(742))
+    }
+
+    @Test
+    fun rejectsInvalidClientUpdateValues() {
+        val fixture = SigningFixture()
+        val validUpdate = EndpointClientUpdate(
+            version = "2.3.2",
+            build = 742,
+            downloadUrl = "https://download.example.com/download/android",
+            required = false,
+            title = "发现新版本",
+            message = "喵喵客户端有新版本可用。",
+        )
+        val invalidUpdates = listOf(
+            validUpdate.copy(version = "2.3"),
+            validUpdate.copy(build = 0),
+            validUpdate.copy(downloadUrl = "http://download.example.com/client.apk"),
+            validUpdate.copy(downloadUrl = "https://127.0.0.1/client.apk"),
+            validUpdate.copy(title = ""),
+            validUpdate.copy(message = ""),
+        )
+
+        invalidUpdates.forEach { update ->
+            val payload = fixture.payload(version = 2).copy(
+                updates = EndpointManifestUpdates(
+                    android = update,
+                    desktop = validUpdate,
+                ),
+            )
+            assertThrows(EndpointManifestException::class.java) {
+                fixture.verifier.verify(fixture.envelope(payload))
+            }
+        }
+    }
+
+    @Test
+    fun rejectsUnexpectedIncompleteOrFractionalClientUpdateFields() {
+        val fixture = SigningFixture()
+        val gson = Gson()
+        val validUpdate = EndpointClientUpdate(
+            version = "2.3.2",
+            build = 742,
+            downloadUrl = "https://download.example.com/download/android",
+            required = false,
+            title = "发现新版本",
+            message = "喵喵客户端有新版本可用。",
+        )
+
+        fun manifestJson() = gson.toJsonTree(
+            fixture.payload(version = 2).copy(
+                updates = EndpointManifestUpdates(
+                    android = validUpdate,
+                    desktop = validUpdate,
+                ),
+            ),
+        ).asJsonObject
+
+        val unexpectedField = manifestJson().apply {
+            getAsJsonObject("updates").getAsJsonObject("android")
+                .addProperty("command", "run-anything")
+        }
+        val unexpectedChannel = manifestJson().apply {
+            getAsJsonObject("updates").add("ios", gson.toJsonTree(validUpdate))
+        }
+        val missingField = manifestJson().apply {
+            getAsJsonObject("updates").getAsJsonObject("android").remove("message")
+        }
+        val missingChannel = manifestJson().apply {
+            getAsJsonObject("updates").remove("desktop")
+        }
+        val fractionalBuild = manifestJson().apply {
+            getAsJsonObject("updates").getAsJsonObject("android").addProperty("build", 742.5)
+        }
+
+        listOf(
+            unexpectedField,
+            unexpectedChannel,
+            missingField,
+            missingChannel,
+            fractionalBuild,
+        ).forEach { payload ->
+            assertThrows(EndpointManifestException::class.java) {
+                fixture.verifier.verify(fixture.envelope(payload.toString()))
+            }
+        }
     }
 
     @Test
@@ -138,7 +258,7 @@ class EndpointManifestTest {
 
     @Test
     fun builtInBootstrapStartsWithStableCdnAndUsesOfficialDownloadPage() {
-        assertEquals("https://cdn.vpnmiao.com/json", EndpointBootstrapConfig.payload.bootstrapMirrors.first())
+        assertEquals("https://cdn.vpnmiao.com/manifest.json", EndpointBootstrapConfig.payload.bootstrapMirrors.first())
         assertEquals(
             "https://download.vpnmiao.com/download/index.html",
             EndpointBootstrapConfig.payload.downloadPageUrl,

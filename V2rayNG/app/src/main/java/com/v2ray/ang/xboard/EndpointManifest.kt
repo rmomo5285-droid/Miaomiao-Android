@@ -3,6 +3,7 @@ package com.v2ray.ang.xboard
 import com.google.gson.Gson
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import java.math.BigDecimal
 import java.net.URI
 import java.security.KeyFactory
 import java.security.Signature
@@ -27,6 +28,22 @@ data class EndpointMigrationNotice(
     val required: Boolean = false,
 )
 
+data class EndpointClientUpdate(
+    val version: String,
+    val build: Long,
+    val downloadUrl: String,
+    val required: Boolean,
+    val title: String,
+    val message: String,
+) {
+    fun isNewerThan(localBuild: Long): Boolean = build > localBuild
+}
+
+data class EndpointManifestUpdates(
+    val android: EndpointClientUpdate,
+    val desktop: EndpointClientUpdate,
+)
+
 data class EndpointManifestPayload(
     val schema: Int,
     val version: Long,
@@ -37,6 +54,7 @@ data class EndpointManifestPayload(
     val downloadPageUrl: String,
     val bootstrapMirrors: List<String>,
     val migrationNotice: EndpointMigrationNotice? = null,
+    val updates: EndpointManifestUpdates? = null,
 )
 
 data class VerifiedEndpointManifest(
@@ -161,6 +179,10 @@ class EndpointManifestVerifier(
         validateDistinctHttpsUrls(payload.bootstrapMirrors, "bootstrap mirror", allowFragment = false)
         validateHttpsUrl(payload.registrationUrl, "registration URL")
         validateHttpsUrl(payload.downloadPageUrl, "download page URL")
+        payload.updates?.let { updates ->
+            validateClientUpdate(updates.android, "android update")
+            validateClientUpdate(updates.desktop, "desktop update")
+        }
         payload.migrationNotice?.let { notice ->
             if (!notice.autoApply ||
                 notice.id.isBlank() || notice.id.length > MAX_NOTICE_ID_CHARS ||
@@ -251,6 +273,39 @@ class EndpointManifestVerifier(
         requireString(payload, "downloadPageUrl")
         requireStringArray(payload, "bootstrapMirrors")
 
+        val updatesElement = payload.get("updates")
+        if (updatesElement != null) {
+            if (!updatesElement.isJsonObject) {
+                throw EndpointManifestException("Manifest updates must be an object")
+            }
+            val updates = updatesElement.asJsonObject
+            validateExactFields(
+                updates,
+                allowed = UPDATE_CHANNEL_FIELDS,
+                required = UPDATE_CHANNEL_FIELDS,
+                label = "updates",
+            )
+            updates.keySet().forEach { channel ->
+                val channelElement = updates.get(channel)
+                if (!channelElement.isJsonObject) {
+                    throw EndpointManifestException("Manifest $channel update must be an object")
+                }
+                val update = channelElement.asJsonObject
+                validateExactFields(
+                    update,
+                    allowed = CLIENT_UPDATE_FIELDS,
+                    required = CLIENT_UPDATE_FIELDS,
+                    label = "$channel update",
+                )
+                requireString(update, "version")
+                requirePositiveInteger(update, "build")
+                requireString(update, "downloadUrl")
+                requireBoolean(update, "required")
+                requireString(update, "title")
+                requireString(update, "message")
+            }
+        }
+
         val noticeElement = payload.get("migrationNotice") ?: return
         if (noticeElement.isJsonNull) return
         if (!noticeElement.isJsonObject) {
@@ -268,6 +323,22 @@ class EndpointManifestVerifier(
         requireString(notice, "message")
         requireBoolean(notice, "autoApply")
         requireBoolean(notice, "required")
+    }
+
+    private fun validateClientUpdate(update: EndpointClientUpdate, label: String) {
+        if (!SEMVER.matches(update.version) || update.version.length > MAX_UPDATE_VERSION_CHARS) {
+            throw EndpointManifestException("Manifest $label version is invalid")
+        }
+        if (update.build <= 0L || update.build > MAX_UPDATE_BUILD) {
+            throw EndpointManifestException("Manifest $label build must be positive")
+        }
+        validateHttpsUrl(update.downloadUrl, "$label download URL")
+        if (update.title.isBlank() || update.title.length > MAX_NOTICE_TITLE_CHARS) {
+            throw EndpointManifestException("Manifest $label title is invalid")
+        }
+        if (update.message.isBlank() || update.message.length > MAX_NOTICE_MESSAGE_CHARS) {
+            throw EndpointManifestException("Manifest $label message is invalid")
+        }
     }
 
     private fun validateExactFields(
@@ -295,6 +366,20 @@ class EndpointManifestVerifier(
         val field = value.get(name)
         if (field == null || !field.isJsonPrimitive || !field.asJsonPrimitive.isNumber) {
             throw EndpointManifestException("Manifest field $name must be a number")
+        }
+    }
+
+    private fun requirePositiveInteger(value: JsonObject, name: String) {
+        val field = value.get(name)
+        val primitive = field?.takeIf { it.isJsonPrimitive }?.asJsonPrimitive
+        if (primitive == null || !primitive.isNumber) {
+            throw EndpointManifestException("Manifest field $name must be a positive integer")
+        }
+        val number = runCatching { primitive.asString.toBigDecimal() }.getOrNull()
+        if (number == null || number.signum() <= 0 ||
+            number.stripTrailingZeros().scale() > 0 || number > BigDecimal.valueOf(MAX_UPDATE_BUILD)
+        ) {
+            throw EndpointManifestException("Manifest field $name must be a positive integer")
         }
     }
 
@@ -361,6 +446,8 @@ class EndpointManifestVerifier(
         private const val MAX_NOTICE_ID_CHARS = 128
         private const val MAX_NOTICE_TITLE_CHARS = 200
         private const val MAX_NOTICE_MESSAGE_CHARS = 4_000
+        private const val MAX_UPDATE_VERSION_CHARS = 64
+        private const val MAX_UPDATE_BUILD = 2_147_483_647L
         private val ENVELOPE_FIELDS = setOf("algorithm", "payload", "signature")
         private val PAYLOAD_FIELDS = setOf(
             "schema",
@@ -372,9 +459,20 @@ class EndpointManifestVerifier(
             "downloadPageUrl",
             "bootstrapMirrors",
             "migrationNotice",
+            "updates",
         )
-        private val REQUIRED_PAYLOAD_FIELDS = PAYLOAD_FIELDS - "migrationNotice"
+        private val REQUIRED_PAYLOAD_FIELDS = PAYLOAD_FIELDS - setOf("migrationNotice", "updates")
         private val NOTICE_FIELDS = setOf("id", "title", "message", "autoApply", "required")
+        private val UPDATE_CHANNEL_FIELDS = setOf("android", "desktop")
+        private val CLIENT_UPDATE_FIELDS = setOf(
+            "version",
+            "build",
+            "downloadUrl",
+            "required",
+            "title",
+            "message",
+        )
+        private val SEMVER = Regex("^(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})\\.(0|[1-9]\\d{0,8})$")
         private val IPV4_LITERAL = Regex("""^\d{1,3}(\.\d{1,3}){3}$""")
         private val MAX_CLOCK_SKEW = Duration.ofMinutes(5)
     }
@@ -388,9 +486,9 @@ v1LzyUeGQ5NN2R0STXbcIN/fzgGpfG9EPDLIHiXKgkbG61VV+06cOV3Wdg==
 
     val payload = EndpointManifestPayload(
         schema = 1,
-        version = 1,
-        issuedAt = "2026-08-01T09:30:00Z",
-        expiresAt = "2027-08-01T00:00:00Z",
+        version = 3,
+        issuedAt = "2026-08-03T07:11:26Z",
+        expiresAt = "2027-08-03T07:11:26Z",
         apiEndpoints = listOf(
             "https://www.miaonetwork.com",
             "https://www.vpnmiao.com",
@@ -398,7 +496,7 @@ v1LzyUeGQ5NN2R0STXbcIN/fzgGpfG9EPDLIHiXKgkbG61VV+06cOV3Wdg==
         registrationUrl = "https://www.miaonetwork.com/#/register",
         downloadPageUrl = "https://download.vpnmiao.com/download/index.html",
         bootstrapMirrors = listOf(
-            "https://cdn.vpnmiao.com/json",
+            "https://cdn.vpnmiao.com/manifest.json",
             "https://rmomo5285-droid.github.io/Miaomiao-Config/manifest.json",
             "https://cdn.jsdelivr.net/gh/rmomo5285-droid/Miaomiao-Config@gh-pages/manifest.json",
             "https://raw.githubusercontent.com/rmomo5285-droid/Miaomiao-Config/gh-pages/manifest.json",

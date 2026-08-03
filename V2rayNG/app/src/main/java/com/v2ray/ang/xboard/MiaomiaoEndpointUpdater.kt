@@ -11,6 +11,8 @@ import androidx.work.multiprocess.RemoteWorkManager
 import java.util.concurrent.TimeUnit
 
 object MiaomiaoEndpointUpdater {
+    fun current(): EndpointManifestPayload = EndpointManifestRepository().current()
+
     fun schedule(context: Context) {
         val request = PeriodicWorkRequestBuilder<UpdateTask>(
             ENDPOINT_REFRESH_HOURS,

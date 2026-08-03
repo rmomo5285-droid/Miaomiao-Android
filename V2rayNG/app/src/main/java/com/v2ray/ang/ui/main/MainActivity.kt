@@ -1,6 +1,7 @@
 package com.v2ray.ang.ui.main
 
 import android.content.Intent
+import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
@@ -13,6 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.v2ray.ang.AngApplication
 import com.v2ray.ang.AppConfig
+import com.v2ray.ang.BuildConfig
 import com.v2ray.ang.R
 import com.v2ray.ang.core.LauncherManager
 import com.v2ray.ang.dto.entities.ProfileItem
@@ -48,6 +50,8 @@ import com.v2ray.ang.ui.settings.SettingsActivity
 import com.v2ray.ang.ui.userasset.UserAssetActivity
 import com.v2ray.ang.util.LogUtil
 import com.v2ray.ang.util.Utils
+import com.v2ray.ang.xboard.EndpointClientUpdate
+import com.v2ray.ang.xboard.EndpointClientUpdatePromptStore
 import com.v2ray.ang.xboard.EndpointMigrationNoticeStore
 import com.v2ray.ang.xboard.MiaomiaoEndpointUpdater
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +62,7 @@ import kotlinx.coroutines.withContext
 class MainActivity : HelperBaseComponentActivity() {
 
     private val migrationNotice = MutableStateFlow<String?>(null)
+    private val clientUpdate = MutableStateFlow<EndpointClientUpdate?>(null)
 
     private val mainViewModel: MainViewModel by viewModels {
         MainViewModel.Factory(application, MainRepository(application as AngApplication))
@@ -107,6 +112,7 @@ class MainActivity : HelperBaseComponentActivity() {
     @Composable
     override fun ScreenContent() {
         val pendingMigrationNotice by migrationNotice.collectAsStateWithLifecycle()
+        val pendingClientUpdate by clientUpdate.collectAsStateWithLifecycle()
         MainScreen(
             mainViewModel = mainViewModel,
             onAction = { action ->
@@ -132,19 +138,45 @@ class MainActivity : HelperBaseComponentActivity() {
                 EndpointMigrationNoticeStore.dismissPending()
                 migrationNotice.value = null
             },
+            clientUpdate = pendingClientUpdate,
+            onOpenClientUpdate = ::openClientUpdate,
+            onDismissClientUpdate = { dismissClientUpdate() },
         )
     }
 
     override fun onResume() {
         super.onResume()
         migrationNotice.value = EndpointMigrationNoticeStore.pendingNotice()
+        clientUpdate.value = EndpointClientUpdatePromptStore.pendingAndroid(
+            MiaomiaoEndpointUpdater.current(),
+            BuildConfig.VERSION_CODE.toLong(),
+        )
     }
 
     private fun refreshEndpointManifest() {
         lifecycleScope.launch {
-            MiaomiaoEndpointUpdater.refreshNow()
+            val result = MiaomiaoEndpointUpdater.refreshNow()
+            clientUpdate.value = EndpointClientUpdatePromptStore.pendingAndroid(
+                result.active,
+                BuildConfig.VERSION_CODE.toLong(),
+            )
             migrationNotice.value = EndpointMigrationNoticeStore.pendingNotice()
         }
+    }
+
+    private fun openClientUpdate(update: EndpointClientUpdate) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.downloadUrl)))
+            if (!update.required) dismissClientUpdate(update)
+        } catch (error: Exception) {
+            LogUtil.e(AppConfig.TAG, "Failed to open client update URL", error)
+            toastError(R.string.toast_failure)
+        }
+    }
+
+    private fun dismissClientUpdate(update: EndpointClientUpdate? = clientUpdate.value) {
+        update?.let(EndpointClientUpdatePromptStore::dismissAndroid)
+        clientUpdate.value = null
     }
 
     private val accountActivityLauncher =
