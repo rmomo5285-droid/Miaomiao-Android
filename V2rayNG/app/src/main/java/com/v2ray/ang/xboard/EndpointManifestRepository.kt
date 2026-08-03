@@ -227,6 +227,7 @@ class EndpointManifestRepository(
             addAll(builtIn.bootstrapMirrors)
         }.distinct()
         val failures = mutableListOf<String>()
+        var bestCandidate: ManifestCandidate? = null
 
         for (throughProxy in listOf(false, true)) {
             for (mirror in mirrors) {
@@ -253,47 +254,62 @@ class EndpointManifestRepository(
                     continue
                 }
 
-                val committed = try {
-                    updateLock.withLock {
-                        // Another process may have committed a newer manifest while this candidate
-                        // was downloading. Re-read under the file lock before comparing and writing.
-                        val latestCached = readCached(requireFresh = false)
-                        val latestVersionFloor = maxOf(
-                            builtIn.version,
-                            latestCached?.payload?.version ?: Long.MIN_VALUE,
-                        )
-                        if (candidate.payload.version < latestVersionFloor) {
-                            throw EndpointManifestException(
-                                "Manifest rollback rejected: ${candidate.payload.version} < " +
-                                    latestVersionFloor,
-                            )
-                        }
-
-                        if (candidate.payload.version == latestCached?.payload?.version) {
-                            EndpointManifestRefreshResult.Unchanged(
-                                active = latestCached.payload,
-                                sourceUrl = mirror,
-                                throughSocksProxy = throughProxy,
-                            )
-                        } else {
-                            if (!cache.write(rawEnvelope)) {
-                                throw IOException("Verified manifest could not be cached")
-                            }
-                            EndpointManifestRefreshResult.Updated(
-                                active = candidate.payload,
-                                sourceUrl = mirror,
-                                throughSocksProxy = throughProxy,
-                            )
-                        }
-                    }
-                } catch (error: Exception) {
-                    failures += failureDescription(
-                        mirror,
-                        throughProxy,
-                        error,
+                val currentBest = bestCandidate
+                if (currentBest == null || candidate.payload.version > currentBest.payload.version) {
+                    bestCandidate = ManifestCandidate(
+                        rawEnvelope = rawEnvelope,
+                        payload = candidate.payload,
+                        sourceUrl = mirror,
+                        throughSocksProxy = throughProxy,
                     )
-                    continue
                 }
+            }
+        }
+
+        val selected = bestCandidate
+        if (selected != null) {
+            val committed = try {
+                updateLock.withLock {
+                    // Another process may have committed a newer manifest while candidates were
+                    // downloading. Re-read under the file lock before comparing and writing.
+                    val latestCached = readCached(requireFresh = false)
+                    val latestVersionFloor = maxOf(
+                        builtIn.version,
+                        latestCached?.payload?.version ?: Long.MIN_VALUE,
+                    )
+                    if (selected.payload.version < latestVersionFloor) {
+                        throw EndpointManifestException(
+                            "Manifest rollback rejected: ${selected.payload.version} < " +
+                                latestVersionFloor,
+                        )
+                    }
+
+                    if (selected.payload.version == latestCached?.payload?.version) {
+                        EndpointManifestRefreshResult.Unchanged(
+                            active = latestCached.payload,
+                            sourceUrl = selected.sourceUrl,
+                            throughSocksProxy = selected.throughSocksProxy,
+                        )
+                    } else {
+                        if (!cache.write(selected.rawEnvelope)) {
+                            throw IOException("Verified manifest could not be cached")
+                        }
+                        EndpointManifestRefreshResult.Updated(
+                            active = selected.payload,
+                            sourceUrl = selected.sourceUrl,
+                            throughSocksProxy = selected.throughSocksProxy,
+                        )
+                    }
+                }
+            } catch (error: Exception) {
+                failures += failureDescription(
+                    selected.sourceUrl,
+                    selected.throughSocksProxy,
+                    error,
+                )
+                null
+            }
+            if (committed != null) {
                 return committed
             }
         }
@@ -316,3 +332,10 @@ class EndpointManifestRepository(
         return "$route $url: ${error.message ?: error.javaClass.simpleName}"
     }
 }
+
+private data class ManifestCandidate(
+    val rawEnvelope: String,
+    val payload: EndpointManifestPayload,
+    val sourceUrl: String,
+    val throughSocksProxy: Boolean,
+)

@@ -294,6 +294,89 @@ class EndpointManifestTest {
     }
 
     @Test
+    fun selectsNewerManifestFromLaterMirrorInsteadOfReturningFirstUnchangedVersion() {
+        val fixture = SigningFixture()
+        val cdnUrl = "https://cdn.example.com/manifest.json"
+        val fallbackUrl = "https://fallback.example.com/manifest.json"
+        val mirrors = listOf(cdnUrl, fallbackUrl)
+        val cache = MemoryManifestCache(
+            fixture.envelope(
+                fixture.payload(version = 3).copy(bootstrapMirrors = mirrors),
+            ),
+        )
+        val calls = mutableListOf<Pair<String, Boolean>>()
+        val repository = EndpointManifestRepository(
+            cache = cache,
+            transport = object : EndpointManifestTransport {
+                override fun fetch(url: String, throughSocksProxy: Boolean): String {
+                    calls += url to throughSocksProxy
+                    return if (url == cdnUrl) {
+                        fixture.envelope(version = 3)
+                    } else {
+                        fixture.envelope(version = 4)
+                    }
+                }
+            },
+            verifier = fixture.verifier,
+            builtIn = fixture.payload(version = 3).copy(
+                bootstrapMirrors = mirrors,
+            ),
+        )
+
+        val result = repository.refreshBlocking()
+
+        assertTrue(result is EndpointManifestRefreshResult.Updated)
+        result as EndpointManifestRefreshResult.Updated
+        assertEquals(4L, result.active.version)
+        assertEquals(fallbackUrl, result.sourceUrl)
+        assertFalse(result.throughSocksProxy)
+        assertEquals(4L, repository.current().version)
+        assertEquals(
+            listOf(
+                cdnUrl to false,
+                fallbackUrl to false,
+                cdnUrl to true,
+                fallbackUrl to true,
+            ),
+            calls,
+        )
+    }
+
+    @Test
+    fun lowerManifestFromLaterMirrorDoesNotReplaceSelectedHigherVersion() {
+        val fixture = SigningFixture()
+        val highUrl = "https://high.example.com/manifest.json"
+        val lowUrl = "https://low.example.com/manifest.json"
+        val cache = MemoryManifestCache()
+        val repository = EndpointManifestRepository(
+            cache = cache,
+            transport = object : EndpointManifestTransport {
+                override fun fetch(url: String, throughSocksProxy: Boolean): String {
+                    return if (url == highUrl) {
+                        fixture.envelope(version = 5)
+                    } else {
+                        fixture.envelope(version = 4)
+                    }
+                }
+            },
+            verifier = fixture.verifier,
+            builtIn = fixture.payload(version = 3).copy(
+                bootstrapMirrors = listOf(highUrl, lowUrl),
+            ),
+        )
+
+        val result = repository.refreshBlocking()
+
+        assertTrue(result is EndpointManifestRefreshResult.Updated)
+        result as EndpointManifestRefreshResult.Updated
+        assertEquals(5L, result.active.version)
+        assertEquals(highUrl, result.sourceUrl)
+        assertFalse(result.throughSocksProxy)
+        assertEquals(5L, repository.current().version)
+        assertEquals(5L, fixture.verifier.verify(cache.value!!).payload.version)
+    }
+
+    @Test
     fun rejectsRollbackBelowLastKnownVersion() {
         val fixture = SigningFixture()
         val cache = MemoryManifestCache(fixture.envelope(version = 2))
