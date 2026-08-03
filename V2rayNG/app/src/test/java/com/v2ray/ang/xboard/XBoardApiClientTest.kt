@@ -13,8 +13,73 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.net.Proxy
 
 class XBoardApiClientTest {
+    @Test
+    fun businessFallbackUsesConfiguredHttpProxySemantics() {
+        val client = XBoardApiClient.localHttpProxyClient(
+            baseClient = OkHttpClient(),
+            port = 10809,
+            username = null,
+            password = null,
+            portOpen = { true },
+        )
+
+        assertEquals(Proxy.Type.HTTP, client?.proxy?.type())
+        assertEquals(10809, client?.proxy?.address()?.let { it as java.net.InetSocketAddress }?.port)
+        assertNull(
+            XBoardApiClient.localHttpProxyClient(
+                baseClient = OkHttpClient(),
+                port = 10808,
+                username = null,
+                password = null,
+                portOpen = { false },
+            ),
+        )
+
+        val socksClient = XBoardApiClient.localSocksProxyClient(
+            baseClient = OkHttpClient(),
+            port = 10808,
+            portOpen = { true },
+        )
+        assertEquals(Proxy.Type.SOCKS, socksClient?.proxy?.type())
+        assertEquals(
+            10808,
+            socksClient?.proxy?.address()?.let { it as java.net.InetSocketAddress }?.port,
+        )
+    }
+
+    @Test
+    fun inviteGenerationSubmitsOnceThenRefreshesInviteInfo() {
+        val requests = mutableListOf<Request>()
+        val api = XBoardApiClient(
+            endpointProvider = { listOf("https://api.example.com") },
+            client = clientResponding { request ->
+                requests += request
+                when (request.url.encodedPath) {
+                    "/api/v1/user/info" -> """{"data":{"id":1}}"""
+                    "/api/v1/user/invite/save" -> """{"data":true}"""
+                    "/api/v1/user/invite/fetch" ->
+                        """{"data":{"codes":[{"code":"MIAO","pv":7,"status":1}],"stat":[4,0,0,12]}}"""
+                    else -> error("Unexpected path ${request.url.encodedPath}")
+                }
+            },
+            proxyClientProvider = { null },
+        )
+
+        val invite = api.generateInviteCode("token")
+
+        assertEquals("MIAO", invite.codes.single().code)
+        assertEquals(7, invite.codes.single().views)
+        assertEquals(4L, invite.totalInvites)
+        assertEquals(12L, invite.commissionRate)
+        assertEquals(1, requests.count { it.url.encodedPath == "/api/v1/user/invite/save" })
+        assertEquals("GET", requests.single {
+            it.url.encodedPath == "/api/v1/user/invite/save"
+        }.method)
+    }
+
     @Test
     fun loginUsesExpectedFormWithoutBearerAndAuthenticatedCallsUseBearer() {
         val requests = mutableListOf<Request>()

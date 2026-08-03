@@ -72,6 +72,10 @@ private class FakeXBoardService : XBoardService {
     }
     override fun fetchPlans(token: String) = listOf(XBoardPlan(id = 11, name = "Plan"))
     override fun fetchNotices(token: String) = listOf(XBoardNotice(id = 1, title = "Notice"))
+    override fun fetchInviteInfo(token: String) = XBoardInviteInfo()
+    override fun generateInviteCode(token: String) = XBoardInviteInfo(
+        codes = listOf(XBoardInviteCode("invite")),
+    )
     override fun fetchOrders(token: String) = emptyList<XBoardOrderRecord>()
     override fun saveOrder(token: String, order: XBoardSaveOrderRequest) = XBoardOrder("trade")
     override fun getPaymentMethods(token: String, tradeNo: String) =

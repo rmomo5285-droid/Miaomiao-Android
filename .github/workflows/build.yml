@@ -50,6 +50,21 @@ jobs:
           fi
           printf 'hev_commit=%s\n' "$(git -C hev-socks5-tunnel rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+      - name: Verify Orange icon assets
+        shell: bash
+        run: bash branding/verify-orange-icons.sh
+
+      - name: Upload Orange icon review assets
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: miaomiao-android-orange-icon-review
+          path: |
+            branding/orange-icon.png
+            V2rayNG/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+            V2rayNG/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Set up pinned Java
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
         with:

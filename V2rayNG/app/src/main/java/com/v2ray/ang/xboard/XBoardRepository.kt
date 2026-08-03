@@ -59,6 +59,20 @@ class XBoardRepository(
         }
     }
 
+    suspend fun fetchNotices(): Result<List<XBoardNotice>> = runOperationWithResult {
+        service.fetchNotices(requireToken()).also { notices ->
+            mutableState.value = mutableState.value.copy(notices = notices)
+        }
+    }
+
+    suspend fun fetchInviteInfo(): Result<XBoardInviteInfo> = runOperationWithResult {
+        service.fetchInviteInfo(requireToken())
+    }
+
+    suspend fun generateInviteCode(): Result<XBoardInviteInfo> = runOperationWithResult {
+        service.generateInviteCode(requireToken())
+    }
+
     suspend fun createOrder(order: XBoardSaveOrderRequest): Result<XBoardOrder> =
         runOperationWithResult { service.saveOrder(requireToken(), order) }
 

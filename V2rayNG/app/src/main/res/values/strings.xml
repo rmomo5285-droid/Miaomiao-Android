@@ -530,6 +530,15 @@
     <string name="miaomiao_notices">Notices</string>
     <string name="miaomiao_notices_subtitle">Service and account updates.</string>
     <string name="miaomiao_notices_empty">There are no new notices.</string>
+    <string name="miaomiao_invite_title">Invite friends</string>
+    <string name="miaomiao_invite_subtitle">Share your personal registration link.</string>
+    <string name="miaomiao_invite_empty">No invite code is available yet.</string>
+    <string name="miaomiao_invite_generate">Generate invite code</string>
+    <string name="miaomiao_invite_stats">%1$d invited · %2$d%% commission</string>
+    <string name="miaomiao_invite_copy">Copy invite link</string>
+    <string name="miaomiao_invite_qr">QR code</string>
+    <string name="miaomiao_invite_share">Share</string>
+    <string name="miaomiao_notice_title">Service notice</string>
     <string name="miaomiao_choose_payment">Choose payment method</string>
     <string name="miaomiao_domain_updated">Service address updated</string>
     <string name="miaomiao_cycle_month">Monthly</string>
