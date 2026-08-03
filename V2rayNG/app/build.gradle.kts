@@ -14,8 +14,8 @@ android {
         applicationId = "com.miaomiao.client"
         minSdk = 24
         targetSdk = 37
-        versionCode = 742
-        versionName = "2.3.2"
+        versionCode = 743
+        versionName = "2.3.3"
         buildConfigField("boolean", "IS_XRAY_CORE", "true")
 
         val abiFilterList = (properties["ABI_FILTERS"] as? String)?.split(';')
