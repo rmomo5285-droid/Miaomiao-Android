@@ -202,8 +202,16 @@ jobs:
           expected="$(printf '%s' "$EXPECTED_SHA256" | tr -d ' :' | tr '[:upper:]' '[:lower:]')"
           apksigner="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner"
           for apk in "${apks[@]}"; do
-            "$apksigner" verify --verbose --print-certs "$apk" > "$RUNNER_TEMP/apksigner.txt"
-            actual="$(awk -F': ' '/Signer #1 certificate SHA-256 digest:/{gsub(":", "", $2); print tolower($2); exit}' "$RUNNER_TEMP/apksigner.txt")"
+            "$apksigner" verify --verbose --print-certs-pem "$apk" > "$RUNNER_TEMP/apksigner.txt"
+            awk '
+              /-----BEGIN CERTIFICATE-----/ { capture = 1 }
+              capture { print }
+              /-----END CERTIFICATE-----/ { exit }
+            ' "$RUNNER_TEMP/apksigner.txt" > "$RUNNER_TEMP/signer-cert.pem"
+            [[ -s "$RUNNER_TEMP/signer-cert.pem" ]]
+            actual="$(openssl x509 -in "$RUNNER_TEMP/signer-cert.pem" -outform DER \
+              | sha256sum | awk '{print $1}')"
+            [[ "$actual" =~ ^[0-9a-f]{64}$ ]]
             [[ "$actual" == "$expected" ]] || {
               echo "Unexpected APK signer for $apk" >&2
               exit 1
@@ -213,7 +221,7 @@ jobs:
       - name: Remove temporary signing material
         if: always() && github.event_name == 'workflow_dispatch'
         shell: bash
-        run: rm -f "${MIAOMIAO_KEYSTORE_PATH:-}" "$RUNNER_TEMP/apksigner.txt"
+        run: rm -f "${MIAOMIAO_KEYSTORE_PATH:-}" "$RUNNER_TEMP/apksigner.txt" "$RUNNER_TEMP/signer-cert.pem"
 
       - name: Upload arm64-v8a APK
         if: success() && github.event_name == 'workflow_dispatch'
