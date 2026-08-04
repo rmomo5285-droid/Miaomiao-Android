@@ -49,6 +49,23 @@ data class XBoardNotice(
     val show: Int? = null,
 )
 
+data class XBoardInviteCode(
+    val code: String,
+    val views: Int = 0,
+    val active: Boolean = true,
+)
+
+data class XBoardInviteInfo(
+    val codes: List<XBoardInviteCode> = emptyList(),
+    val stats: List<Long> = emptyList(),
+) {
+    val totalInvites: Long
+        get() = stats.getOrElse(0) { 0L }
+
+    val commissionRate: Long
+        get() = stats.getOrElse(3) { 0L }
+}
+
 data class XBoardSaveOrderRequest(
     val planId: Int,
     val period: String,

@@ -5,6 +5,7 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.v2ray.ang.AppConfig
 import com.v2ray.ang.handler.SettingsManager
+import com.v2ray.ang.util.Utils
 import okhttp3.Credentials
 import okhttp3.FormBody
 import okhttp3.HttpUrl
@@ -38,6 +39,12 @@ interface XBoardService {
 
     @Throws(XBoardApiException::class)
     fun fetchNotices(token: String): List<XBoardNotice>
+
+    @Throws(XBoardApiException::class)
+    fun fetchInviteInfo(token: String): XBoardInviteInfo
+
+    @Throws(XBoardApiException::class)
+    fun generateInviteCode(token: String): XBoardInviteInfo
 
     @Throws(XBoardApiException::class)
     fun fetchOrders(token: String): List<XBoardOrderRecord>
@@ -97,6 +104,53 @@ class XBoardApiClient(
     override fun fetchNotices(token: String): List<XBoardNotice> {
         val data = dataElement(executeAuthenticatedGet(PATH_NOTICES, token))
         return requireArray(data, "notices").map { gson.fromJson(it, XBoardNotice::class.java) }
+    }
+
+    override fun fetchInviteInfo(token: String): XBoardInviteInfo {
+        return parseInviteInfo(dataElement(executeAuthenticatedGet(PATH_INVITE_INFO, token)))
+    }
+
+    override fun generateInviteCode(token: String): XBoardInviteInfo {
+        val route = selectAuthenticatedRoute(token)
+        val url = buildUrl(route.endpoint, PATH_INVITE_GENERATE, emptyMap())
+        val request = authenticatedRequest(url, token).get().build()
+        val response = try {
+            route.client.newBuilder()
+                .retryOnConnectionFailure(false)
+                .followRedirects(false)
+                .followSslRedirects(false)
+                .build()
+                .newCall(request)
+                .execute()
+        } catch (error: IOException) {
+            throw XBoardApiException(
+                "The invite-code request outcome is unknown. Refresh before retrying.",
+                outcomeUnknown = true,
+                cause = error,
+            )
+        }
+        response.use {
+            if (!it.isSuccessful) {
+                throw XBoardApiException(responseErrorMessage(it), statusCode = it.code)
+            }
+            val data = dataElement(parseResponse(it))
+            if (!data.isJsonPrimitive || !data.asJsonPrimitive.isBoolean || !data.asBoolean) {
+                throw XBoardApiException(
+                    "Invite-code response did not confirm success",
+                    statusCode = it.code,
+                    outcomeUnknown = true,
+                )
+            }
+        }
+        return try {
+            fetchInviteInfo(token)
+        } catch (error: XBoardApiException) {
+            throw XBoardApiException(
+                "The invite code may have been generated, but refresh failed. Refresh before retrying.",
+                outcomeUnknown = true,
+                cause = error,
+            )
+        }
     }
 
     override fun fetchOrders(token: String): List<XBoardOrderRecord> {
@@ -219,6 +273,45 @@ class XBoardApiClient(
 
     private fun executeAuthenticatedGet(path: String, token: String): JsonElement {
         return execute(path) { url -> authenticatedRequest(url, token).get().build() }
+    }
+
+    private fun parseInviteInfo(data: JsonElement): XBoardInviteInfo {
+        val root = requireObject(data, "invite")
+        val codes = root.get("codes")
+            ?.takeIf(JsonElement::isJsonArray)
+            ?.asJsonArray
+            ?.mapNotNull { item ->
+                val value = item.takeIf(JsonElement::isJsonObject)?.asJsonObject
+                    ?: return@mapNotNull null
+                val code = value.get("code")
+                    ?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }
+                    ?.asString
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() && it.length <= MAX_INVITE_CODE_CHARS }
+                    ?: return@mapNotNull null
+                val active = value.get("status")?.let { status ->
+                    when {
+                        status.isJsonPrimitive && status.asJsonPrimitive.isBoolean -> status.asBoolean
+                        status.isJsonPrimitive && status.asJsonPrimitive.isNumber -> status.asInt != 0
+                        else -> true
+                    }
+                } ?: true
+                XBoardInviteCode(
+                    code = code,
+                    views = value.get("pv")?.intValueOrNull()?.coerceAtLeast(0) ?: 0,
+                    active = active,
+                )
+            }
+            .orEmpty()
+        val stats = root.get("stat")
+            ?.takeIf(JsonElement::isJsonArray)
+            ?.asJsonArray
+            ?.take(MAX_INVITE_STATS)
+            ?.map { value ->
+                runCatching { value.asLong }.getOrDefault(0L).coerceAtLeast(0L)
+            }
+            .orEmpty()
+        return XBoardInviteInfo(codes = codes, stats = stats)
     }
 
     private fun executeAuthenticatedMutation(
@@ -487,6 +580,8 @@ class XBoardApiClient(
         private const val PATH_SUBSCRIBE = "/api/v1/user/getSubscribe"
         private const val PATH_PLANS = "/api/v1/user/plan/fetch"
         private const val PATH_NOTICES = "/api/v1/user/notice/fetch"
+        private const val PATH_INVITE_INFO = "/api/v1/user/invite/fetch"
+        private const val PATH_INVITE_GENERATE = "/api/v1/user/invite/save"
         private const val PATH_ORDERS = "/api/v1/user/order/fetch"
         private const val PATH_SAVE_ORDER = "/api/v1/user/order/save"
         private const val PATH_PAYMENT_METHODS = "/api/v1/user/order/getPaymentMethod"
@@ -499,6 +594,8 @@ class XBoardApiClient(
         private const val MAX_ERROR_MESSAGE_CHARS = 512
         private const val MAX_TRADE_NO_CHARS = 128
         private const val MAX_ORDER_STATUS_TIMEOUT_MILLIS = 20_000L
+        private const val MAX_INVITE_CODE_CHARS = 256
+        private const val MAX_INVITE_STATS = 8
 
         private fun normalizeToken(rawToken: String): String {
             val token = rawToken.trim()
@@ -522,15 +619,65 @@ class XBoardApiClient(
                 statusCode >= 500
 
         private fun localProxyClient(baseClient: OkHttpClient): OkHttpClient? {
-            val port = SettingsManager.getHttpPort()
-            if (port !in 1..65_535 || !isLoopbackPortOpen(port)) return null
+            val proxyType = if (Utils.isXray()) Proxy.Type.SOCKS else Proxy.Type.HTTP
+            val port = if (proxyType == Proxy.Type.SOCKS) {
+                SettingsManager.getSocksPort()
+            } else {
+                SettingsManager.getHttpPort()
+            }
+            return localRouteProxyClient(
+                baseClient,
+                proxyType,
+                port,
+                SettingsManager.getSocksUsername(),
+                SettingsManager.getSocksPassword(),
+                ::isLoopbackPortOpen,
+            )
+        }
 
-            val username = SettingsManager.getSocksUsername()
-            val password = SettingsManager.getSocksPassword()
+        internal fun localHttpProxyClient(
+            baseClient: OkHttpClient,
+            port: Int,
+            username: String?,
+            password: String?,
+            portOpen: (Int) -> Boolean,
+        ): OkHttpClient? = localRouteProxyClient(
+            baseClient,
+            Proxy.Type.HTTP,
+            port,
+            username,
+            password,
+            portOpen,
+        )
+
+        internal fun localSocksProxyClient(
+            baseClient: OkHttpClient,
+            port: Int,
+            portOpen: (Int) -> Boolean,
+        ): OkHttpClient? = localRouteProxyClient(
+            baseClient,
+            Proxy.Type.SOCKS,
+            port,
+            null,
+            null,
+            portOpen,
+        )
+
+        private fun localRouteProxyClient(
+            baseClient: OkHttpClient,
+            proxyType: Proxy.Type,
+            port: Int,
+            username: String?,
+            password: String?,
+            portOpen: (Int) -> Boolean,
+        ): OkHttpClient? {
+            if (port !in 1..65_535 || !portOpen(port)) return null
             return baseClient.newBuilder()
-                .proxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(AppConfig.LOOPBACK, port)))
+                .proxy(Proxy(proxyType, InetSocketAddress(AppConfig.LOOPBACK, port)))
                 .apply {
-                    if (!username.isNullOrBlank() && !password.isNullOrBlank()) {
+                    if (proxyType == Proxy.Type.HTTP &&
+                        !username.isNullOrBlank() && !password.isNullOrBlank()
+                    ) {
                         proxyAuthenticator { _, response ->
                             if (response.request.header("Proxy-Authorization") != null) {
                                 null

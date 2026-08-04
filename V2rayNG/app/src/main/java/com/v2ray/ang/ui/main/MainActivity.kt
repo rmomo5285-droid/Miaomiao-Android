@@ -5,6 +5,7 @@ import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
+import android.text.Html
 import android.view.KeyEvent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -54,6 +55,11 @@ import com.v2ray.ang.xboard.EndpointClientUpdate
 import com.v2ray.ang.xboard.EndpointClientUpdatePromptStore
 import com.v2ray.ang.xboard.EndpointMigrationNoticeStore
 import com.v2ray.ang.xboard.MiaomiaoEndpointUpdater
+import com.v2ray.ang.xboard.EndpointManifestPayload
+import com.v2ray.ang.xboard.XBoardApiClient
+import com.v2ray.ang.xboard.XBoardNotice
+import com.v2ray.ang.xboard.XBoardNoticePromptStore
+import com.v2ray.ang.xboard.XBoardRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
@@ -63,6 +69,7 @@ class MainActivity : HelperBaseComponentActivity() {
 
     private val migrationNotice = MutableStateFlow<String?>(null)
     private val clientUpdate = MutableStateFlow<EndpointClientUpdate?>(null)
+    private val ordinaryNotice = MutableStateFlow<XBoardNotice?>(null)
 
     private val mainViewModel: MainViewModel by viewModels {
         MainViewModel.Factory(application, MainRepository(application as AngApplication))
@@ -113,6 +120,7 @@ class MainActivity : HelperBaseComponentActivity() {
     override fun ScreenContent() {
         val pendingMigrationNotice by migrationNotice.collectAsStateWithLifecycle()
         val pendingClientUpdate by clientUpdate.collectAsStateWithLifecycle()
+        val pendingOrdinaryNotice by ordinaryNotice.collectAsStateWithLifecycle()
         MainScreen(
             mainViewModel = mainViewModel,
             onAction = { action ->
@@ -141,6 +149,8 @@ class MainActivity : HelperBaseComponentActivity() {
             clientUpdate = pendingClientUpdate,
             onOpenClientUpdate = ::openClientUpdate,
             onDismissClientUpdate = { dismissClientUpdate() },
+            ordinaryNotice = pendingOrdinaryNotice,
+            onDismissOrdinaryNotice = ::dismissOrdinaryNotice,
         )
     }
 
@@ -161,7 +171,33 @@ class MainActivity : HelperBaseComponentActivity() {
                 BuildConfig.VERSION_CODE.toLong(),
             )
             migrationNotice.value = EndpointMigrationNoticeStore.pendingNotice()
+            refreshOrdinaryNotice(result.active)
         }
+    }
+
+    private suspend fun refreshOrdinaryNotice(payload: EndpointManifestPayload) {
+        val repository = XBoardRepository(
+            service = XBoardApiClient(endpointProvider = { payload.apiEndpoints }),
+        )
+        if (!repository.restoreLocalSession().authenticated) {
+            ordinaryNotice.value = null
+            return
+        }
+        repository.fetchNotices().onSuccess { notices ->
+            ordinaryNotice.value = XBoardNoticePromptStore.pending(notices)?.let { notice ->
+                notice.copy(
+                    title = notice.title.trim(),
+                    content = Html.fromHtml(notice.content, Html.FROM_HTML_MODE_LEGACY)
+                        .toString()
+                        .trim(),
+                )
+            }
+        }
+    }
+
+    private fun dismissOrdinaryNotice(notice: XBoardNotice) {
+        XBoardNoticePromptStore.dismiss(notice.id)
+        ordinaryNotice.value = null
     }
 
     private fun openClientUpdate(update: EndpointClientUpdate) {
@@ -182,6 +218,9 @@ class MainActivity : HelperBaseComponentActivity() {
     private val accountActivityLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             mainViewModel.onAction(MainAction.RefreshGroups)
+            lifecycleScope.launch {
+                refreshOrdinaryNotice(MiaomiaoEndpointUpdater.current())
+            }
         }
 
     private fun shareToClipboard(guid: String): Boolean =

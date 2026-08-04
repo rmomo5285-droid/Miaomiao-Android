@@ -19,6 +19,7 @@ import com.v2ray.ang.xboard.XBoardCheckoutRequest
 import com.v2ray.ang.xboard.XBoardPaymentMethod
 import com.v2ray.ang.xboard.XBoardPaymentState
 import com.v2ray.ang.xboard.XBoardPlan
+import com.v2ray.ang.xboard.XBoardInviteInfo
 import com.v2ray.ang.xboard.XBoardRepository
 import com.v2ray.ang.xboard.XBoardSaveOrderRequest
 import com.v2ray.ang.xboard.XBoardApiException
@@ -47,6 +48,8 @@ data class MiaomiaoAccountUiState(
     val paymentUrl: String? = null,
     val registrationUrl: String? = null,
     val migrationNotice: String? = null,
+    val inviteInfo: XBoardInviteInfo? = null,
+    val isLoadingInvite: Boolean = false,
     val message: String? = null,
 )
 
@@ -138,6 +141,40 @@ class MiaomiaoAccountViewModel(application: Application) : AndroidViewModel(appl
         }
     }
 
+    fun generateInviteCode() {
+        viewModelScope.launch {
+            accountOperationMutex.withLock {
+                mutableUiState.update { it.copy(isLoadingInvite = true, message = null) }
+                accountRepository.generateInviteCode()
+                    .onSuccess { info ->
+                        mutableUiState.update {
+                            it.copy(
+                                inviteInfo = info,
+                                isLoadingInvite = false,
+                                message = "邀请码已生成",
+                            )
+                        }
+                    }
+                    .onFailure { error ->
+                        mutableUiState.update {
+                            it.copy(
+                                isLoadingInvite = false,
+                                message = if ((error as? XBoardApiException)?.outcomeUnknown == true) {
+                                    "邀请码生成结果暂时无法确认，请先刷新，不要重复提交"
+                                } else {
+                                    error.message ?: "邀请码生成失败"
+                                },
+                            )
+                        }
+                    }
+            }
+        }
+    }
+
+    fun inviteCopied() {
+        setMessage("邀请链接已复制")
+    }
+
     fun logout() {
         viewModelScope.launch {
             accountOperationMutex.withLock {
@@ -149,6 +186,8 @@ class MiaomiaoAccountViewModel(application: Application) : AndroidViewModel(appl
                     it.copy(
                         isPurchasing = false,
                         paymentMethods = emptyList(),
+                        inviteInfo = null,
+                        isLoadingInvite = false,
                         pendingPlanName = null,
                         message = "已退出登录，本机缓存节点仍可继续使用",
                     )
@@ -356,6 +395,11 @@ class MiaomiaoAccountViewModel(application: Application) : AndroidViewModel(appl
     ) {
         accountRepository.refreshAccount()
             .onSuccess { state ->
+                accountRepository.fetchInviteInfo().onSuccess { info ->
+                    mutableUiState.update { it.copy(inviteInfo = info, isLoadingInvite = false) }
+                }.onFailure {
+                    mutableUiState.update { it.copy(isLoadingInvite = false) }
+                }
                 if (reconcilePaymentOrders) {
                     val recoveredOrder = reconcileOrders(state.orders)
                     if (recoveredOrder != null &&
