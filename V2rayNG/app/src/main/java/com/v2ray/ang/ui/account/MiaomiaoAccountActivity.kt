@@ -1,5 +1,6 @@
 package com.v2ray.ang.ui.account
 
+import android.content.Intent
 import android.os.Bundle
 import android.text.Html
 import androidx.activity.viewModels
@@ -60,12 +61,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.v2ray.ang.R
 import com.v2ray.ang.ui.base.BaseComponentActivity
 import com.v2ray.ang.ui.compose.AppTopBar
+import com.v2ray.ang.ui.compose.QRCodeDialog
+import com.v2ray.ang.util.QRCodeDecoder
 import com.v2ray.ang.util.Utils
 import com.v2ray.ang.xboard.XBoardAccountState
 import com.v2ray.ang.xboard.XBoardNotice
 import com.v2ray.ang.xboard.XBoardOperationState
 import com.v2ray.ang.xboard.XBoardPaymentMethod
 import com.v2ray.ang.xboard.XBoardPlan
+import com.v2ray.ang.xboard.XBoardInvitePolicy
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -89,6 +93,7 @@ class MiaomiaoAccountActivity : BaseComponentActivity() {
     @Composable
     override fun ScreenContent() {
         val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+        var inviteQrCode by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
 
         LaunchedEffect(uiState.paymentUrl) {
             val url = uiState.paymentUrl ?: return@LaunchedEffect
@@ -112,7 +117,25 @@ class MiaomiaoAccountActivity : BaseComponentActivity() {
             onDismissPaymentMethods = viewModel::dismissPaymentMethods,
             onDismissMigrationNotice = viewModel::consumeMigrationNotice,
             onMessageShown = viewModel::consumeMessage,
+            onGenerateInviteCode = viewModel::generateInviteCode,
+            onCopyInviteLink = { link ->
+                Utils.setClipboard(this, link)
+                viewModel.inviteCopied()
+            },
+            onShareInviteLink = ::shareInviteLink,
+            onShowInviteQrCode = { link ->
+                inviteQrCode = QRCodeDecoder.createQRCode(link)
+            },
         )
+        QRCodeDialog(bitmap = inviteQrCode, onDismiss = { inviteQrCode = null })
+    }
+
+    private fun shareInviteLink(link: String) {
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, link)
+        }
+        startActivity(Intent.createChooser(intent, getString(R.string.miaomiao_invite_share)))
     }
 }
 
@@ -130,10 +153,14 @@ private fun MiaomiaoAccountScreen(
     onDismissPaymentMethods: () -> Unit,
     onDismissMigrationNotice: () -> Unit,
     onMessageShown: () -> Unit,
+    onGenerateInviteCode: () -> Unit,
+    onCopyInviteLink: (String) -> Unit,
+    onShareInviteLink: (String) -> Unit,
+    onShowInviteQrCode: (String) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val isLoading = uiState.account.operation == XBoardOperationState.LOADING ||
-        uiState.isPurchasing
+        uiState.isPurchasing || uiState.isLoadingInvite
 
     LaunchedEffect(uiState.message) {
         val message = uiState.message ?: return@LaunchedEffect
@@ -168,6 +195,10 @@ private fun MiaomiaoAccountScreen(
                 onLogout = onLogout,
                 onCheckPayment = onCheckPayment,
                 onPurchase = onPurchase,
+                onGenerateInviteCode = onGenerateInviteCode,
+                onCopyInviteLink = onCopyInviteLink,
+                onShareInviteLink = onShareInviteLink,
+                onShowInviteQrCode = onShowInviteQrCode,
                 modifier = Modifier.padding(innerPadding),
             )
         } else {
@@ -317,6 +348,10 @@ private fun AccountContent(
     onLogout: () -> Unit,
     onCheckPayment: () -> Unit,
     onPurchase: (XBoardPlan, String) -> Unit,
+    onGenerateInviteCode: () -> Unit,
+    onCopyInviteLink: (String) -> Unit,
+    onShareInviteLink: (String) -> Unit,
+    onShowInviteQrCode: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -351,6 +386,21 @@ private fun AccountContent(
         }
         item {
             SectionHeader(
+                title = stringResource(R.string.miaomiao_invite_title),
+                subtitle = stringResource(R.string.miaomiao_invite_subtitle),
+            )
+        }
+        item {
+            InviteCard(
+                uiState = uiState,
+                onGenerate = onGenerateInviteCode,
+                onCopy = onCopyInviteLink,
+                onShare = onShareInviteLink,
+                onShowQrCode = onShowInviteQrCode,
+            )
+        }
+        item {
+            SectionHeader(
                 title = stringResource(R.string.miaomiao_notices),
                 subtitle = stringResource(R.string.miaomiao_notices_subtitle),
             )
@@ -371,6 +421,110 @@ private fun AccountContent(
                     text = stringResource(R.string.miaomiao_logout),
                     color = MaterialTheme.colorScheme.error,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InviteCard(
+    uiState: MiaomiaoAccountUiState,
+    onGenerate: () -> Unit,
+    onCopy: (String) -> Unit,
+    onShare: (String) -> Unit,
+    onShowQrCode: (String) -> Unit,
+) {
+    val code = uiState.inviteInfo?.let(XBoardInvitePolicy::preferredCode)
+    val link = if (code != null && uiState.registrationUrl != null) {
+        XBoardInvitePolicy.buildRegistrationUrl(uiState.registrationUrl, code.code)
+    } else {
+        null
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = MaterialTheme.shapes.medium,
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            if (code == null) {
+                Text(
+                    text = stringResource(R.string.miaomiao_invite_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Button(
+                    onClick = onGenerate,
+                    enabled = !uiState.isLoadingInvite,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    if (uiState.isLoadingInvite) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_add_24dp),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        Text(stringResource(R.string.miaomiao_invite_generate))
+                    }
+                }
+                return@Column
+            }
+
+            Text(
+                text = code.code,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = stringResource(
+                    R.string.miaomiao_invite_stats,
+                    uiState.inviteInfo.totalInvites,
+                    uiState.inviteInfo.commissionRate,
+                ),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (link != null) {
+                OutlinedButton(onClick = { onCopy(link) }, modifier = Modifier.fillMaxWidth()) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_copy),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Spacer(Modifier.size(8.dp))
+                    Text(stringResource(R.string.miaomiao_invite_copy))
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedButton(onClick = { onShowQrCode(link) }, modifier = Modifier.weight(1f)) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_scan_24dp),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.size(6.dp))
+                        Text(stringResource(R.string.miaomiao_invite_qr))
+                    }
+                    Button(onClick = { onShare(link) }, modifier = Modifier.weight(1f)) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_share_24dp),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.size(6.dp))
+                        Text(stringResource(R.string.miaomiao_invite_share))
+                    }
+                }
             }
         }
     }

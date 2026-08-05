@@ -45,6 +45,10 @@ class MmkvEndpointManifestCache(
 interface EndpointManifestTransport {
     @Throws(IOException::class)
     fun fetch(url: String, throughSocksProxy: Boolean): String
+
+    @Throws(IOException::class)
+    fun fetch(url: String, throughSocksProxy: Boolean, timeoutMillis: Long): String =
+        fetch(url, throughSocksProxy)
 }
 
 interface EndpointManifestUpdateLock {
@@ -102,8 +106,17 @@ class OkHttpEndpointManifestTransport(
     private val socksPortProvider: () -> Int = SettingsManager::getSocksPort,
 ) : EndpointManifestTransport {
     override fun fetch(url: String, throughSocksProxy: Boolean): String {
+        return fetch(url, throughSocksProxy, DEFAULT_CALL_TIMEOUT_MILLIS)
+    }
+
+    override fun fetch(
+        url: String,
+        throughSocksProxy: Boolean,
+        timeoutMillis: Long,
+    ): String {
         requireHttpsUrl(url)
-        val client = if (throughSocksProxy) {
+        require(timeoutMillis > 0L)
+        val routeClient = if (throughSocksProxy) {
             directClient.newBuilder()
                 .proxy(
                     Proxy(
@@ -115,6 +128,9 @@ class OkHttpEndpointManifestTransport(
         } else {
             directClient
         }
+        val client = routeClient.newBuilder()
+            .callTimeout(timeoutMillis, TimeUnit.MILLISECONDS)
+            .build()
 
         val request = Request.Builder()
             .url(url)
@@ -158,6 +174,7 @@ class OkHttpEndpointManifestTransport(
     companion object {
         private const val MAX_MANIFEST_BYTES = 1024 * 1024
         private const val USER_AGENT = "miaomiao-android/manifest-v1"
+        private const val DEFAULT_CALL_TIMEOUT_MILLIS = 20_000L
 
         private fun secureClient(): OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
@@ -218,6 +235,7 @@ class EndpointManifestRepository(
     }
 
     internal fun refreshBlocking(): EndpointManifestRefreshResult {
+        val refreshStartedNanos = System.nanoTime()
         val cachedForVersion = readCached(requireFresh = false)
         val cachedFresh = readCached(requireFresh = true)
         val active = cachedFresh?.payload ?: cachedForVersion?.payload ?: builtIn
@@ -229,10 +247,22 @@ class EndpointManifestRepository(
         val failures = mutableListOf<String>()
         var bestCandidate: ManifestCandidate? = null
 
-        for (throughProxy in listOf(false, true)) {
+        refreshRoutes@ for (throughProxy in listOf(false, true)) {
             for (mirror in mirrors) {
+                val elapsedMillis = TimeUnit.NANOSECONDS.toMillis(
+                    System.nanoTime() - refreshStartedNanos,
+                )
+                val remainingMillis = MAX_REFRESH_MILLIS - elapsedMillis
+                if (remainingMillis <= 0L) {
+                    failures += "Manifest refresh exceeded ${MAX_REFRESH_MILLIS}ms overall limit"
+                    break@refreshRoutes
+                }
                 val rawEnvelope = try {
-                    transport.fetch(mirror, throughProxy)
+                    transport.fetch(
+                        mirror,
+                        throughProxy,
+                        minOf(MAX_FETCH_MILLIS, remainingMillis),
+                    )
                 } catch (error: Exception) {
                     failures += failureDescription(mirror, throughProxy, error)
                     continue
@@ -316,6 +346,11 @@ class EndpointManifestRepository(
 
         val latestActive = readCached(requireFresh = false)?.payload ?: active
         return EndpointManifestRefreshResult.Failed(active = latestActive, failures = failures)
+    }
+
+    private companion object {
+        const val MAX_REFRESH_MILLIS = 45_000L
+        const val MAX_FETCH_MILLIS = 20_000L
     }
 
     private fun readCached(requireFresh: Boolean): VerifiedEndpointManifest? {

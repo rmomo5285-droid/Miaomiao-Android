@@ -29,7 +29,7 @@ data class XBoardPlan(
     @SerializedName("transfer_enable") val transferEnable: Long = 0L,
     @SerializedName("speed_limit") val speedLimit: Int? = null,
     @SerializedName("device_limit") val deviceLimit: Int? = null,
-    val renew: Int? = null,
+    val renew: JsonElement? = null,
     @SerializedName("month_price") val monthPrice: Long? = null,
     @SerializedName("quarter_price") val quarterPrice: Long? = null,
     @SerializedName("half_year_price") val halfYearPrice: Long? = null,
@@ -48,6 +48,23 @@ data class XBoardNotice(
     @SerializedName("updated_at") val updatedAt: Long? = null,
     val show: Int? = null,
 )
+
+data class XBoardInviteCode(
+    val code: String,
+    val views: Int = 0,
+    val active: Boolean = true,
+)
+
+data class XBoardInviteInfo(
+    val codes: List<XBoardInviteCode> = emptyList(),
+    val stats: List<Long> = emptyList(),
+) {
+    val totalInvites: Long
+        get() = stats.getOrElse(0) { 0L }
+
+    val commissionRate: Long
+        get() = stats.getOrElse(3) { 0L }
+}
 
 data class XBoardSaveOrderRequest(
     val planId: Int,

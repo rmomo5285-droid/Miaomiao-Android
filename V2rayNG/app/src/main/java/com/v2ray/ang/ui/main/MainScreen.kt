@@ -39,6 +39,7 @@ import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.ui.compose.QRCodeDialog
 import com.v2ray.ang.xboard.EndpointClientUpdate
 import com.v2ray.ang.xboard.XBoardAccountState
+import com.v2ray.ang.xboard.XBoardNotice
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -56,6 +57,8 @@ fun MainScreen(
     clientUpdate: EndpointClientUpdate? = null,
     onOpenClientUpdate: (EndpointClientUpdate) -> Unit = {},
     onDismissClientUpdate: () -> Unit = {},
+    ordinaryNotice: XBoardNotice? = null,
+    onDismissOrdinaryNotice: (XBoardNotice) -> Unit = {},
 ) {
     val uiState by mainViewModel.uiState.collectAsStateWithLifecycle()
     val groups = uiState.groups
@@ -243,6 +246,24 @@ fun MainScreen(
                     TextButton(onClick = onDismissClientUpdate) {
                         Text(stringResource(R.string.miaomiao_update_later))
                     }
+                }
+            },
+        )
+    }
+    if (migrationNotice == null && clientUpdate == null && ordinaryNotice != null) {
+        AlertDialog(
+            onDismissRequest = { onDismissOrdinaryNotice(ordinaryNotice) },
+            title = {
+                Text(
+                    ordinaryNotice.title.ifBlank {
+                        stringResource(R.string.miaomiao_notice_title)
+                    },
+                )
+            },
+            text = { Text(ordinaryNotice.content) },
+            confirmButton = {
+                TextButton(onClick = { onDismissOrdinaryNotice(ordinaryNotice) }) {
+                    Text(stringResource(android.R.string.ok))
                 }
             },
         )
