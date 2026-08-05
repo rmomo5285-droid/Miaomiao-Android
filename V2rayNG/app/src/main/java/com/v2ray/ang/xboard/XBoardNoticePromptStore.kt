@@ -6,7 +6,7 @@ object XBoardNoticePromptPolicy {
     fun pending(notices: List<XBoardNotice>, dismissedIds: Set<Int>): XBoardNotice? {
         return notices.asSequence()
             .filter { it.id > 0 && it.id !in dismissedIds }
-            .filter { it.show != 0 }
+            .filter { it.show != false }
             .filter { it.title.isNotBlank() || it.content.isNotBlank() }
             .maxByOrNull(XBoardNotice::id)
     }

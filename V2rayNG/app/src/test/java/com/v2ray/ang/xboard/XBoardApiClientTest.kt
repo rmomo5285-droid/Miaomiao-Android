@@ -200,13 +200,13 @@ class XBoardApiClientTest {
     }
 
     @Test
-    fun fetchesPlansWhenRenewUsesBooleanContract() {
+    fun fetchesPlansWithOrangeCompatibleBooleanFlags() {
         val api = XBoardApiClient(
             endpointProvider = { listOf("https://api.example.com") },
             client = clientResponding { request ->
                 when (request.url.encodedPath) {
                     "/api/v1/user/plan/fetch" ->
-                        """{"data":[{"id":7,"name":"Plan","renew":true,"month_price":1500}]}"""
+                        """{"data":[{"id":7,"name":"Plan","show":true,"sell":1,"renew":true,"month_price":1500},{"id":8,"name":"Hidden","show":0,"renew":1}]}"""
                     else -> error("Unexpected path ${request.url.encodedPath}")
                 }
             },
@@ -215,8 +215,28 @@ class XBoardApiClientTest {
         val plan = api.fetchPlans("token").single()
 
         assertEquals(7, plan.id)
-        assertTrue(plan.renew?.asBoolean == true)
+        assertTrue(plan.show == true)
+        assertTrue(plan.sell == true)
+        assertTrue(plan.renew == true)
         assertEquals(1500L, plan.monthPrice)
+    }
+
+    @Test
+    fun fetchesNoticesWithOrangeCompatibleBooleanShowFlag() {
+        val api = XBoardApiClient(
+            endpointProvider = { listOf("https://api.example.com") },
+            client = clientResponding { request ->
+                when (request.url.encodedPath) {
+                    "/api/v1/user/notice/fetch" ->
+                        """{"data":[{"id":1,"title":"Boolean","show":true},{"id":2,"title":"Numeric","show":1},{"id":3,"title":"Hidden","show":false}]}"""
+                    else -> error("Unexpected path ${request.url.encodedPath}")
+                }
+            },
+        )
+
+        val notices = api.fetchNotices("token")
+
+        assertEquals(listOf(true, true, false), notices.map { it.show })
     }
 
     @Test
