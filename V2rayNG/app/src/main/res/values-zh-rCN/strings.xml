@@ -487,6 +487,22 @@
     <string name="miaomiao_connect">连接</string>
     <string name="miaomiao_disconnect">断开</string>
     <string name="miaomiao_select_node">请选择节点后连接</string>
+    <string name="miaomiao_nav_home">首页</string>
+    <string name="miaomiao_nav_routes">线路</string>
+    <string name="miaomiao_nav_account">账户</string>
+    <string name="miaomiao_nav_settings">设置</string>
+    <string name="miaomiao_proxy_mode">代理模式</string>
+    <string name="miaomiao_proxy_mode_hint">选择分流规则与 VPN 行为</string>
+    <string name="miaomiao_rule_mode">规则分流</string>
+    <string name="miaomiao_vpn_mode">VPN 模式</string>
+    <string name="miaomiao_current_route">当前线路</string>
+    <string name="miaomiao_login_for_usage">登录后查看流量与有效期</string>
+    <string name="miaomiao_local_routes_available">本机已有线路仍可继续使用</string>
+    <string name="miaomiao_remaining_traffic">剩余流量</string>
+    <string name="miaomiao_valid_until">有效期</string>
+    <string name="miaomiao_refresh_account">刷新账户</string>
+    <string name="miaomiao_long_term">长期有效</string>
+    <string name="miaomiao_not_tested">未测试</string>
 
     <string name="miaomiao_account_title">账户与套餐</string>
     <string name="miaomiao_login_title">欢迎回来</string>

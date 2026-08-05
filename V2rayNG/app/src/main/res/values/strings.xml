@@ -500,6 +500,22 @@
     <string name="miaomiao_connect">Connect</string>
     <string name="miaomiao_disconnect">Disconnect</string>
     <string name="miaomiao_select_node">Select a node to connect</string>
+    <string name="miaomiao_nav_home">Home</string>
+    <string name="miaomiao_nav_routes">Routes</string>
+    <string name="miaomiao_nav_account">Account</string>
+    <string name="miaomiao_nav_settings">Settings</string>
+    <string name="miaomiao_proxy_mode">Proxy mode</string>
+    <string name="miaomiao_proxy_mode_hint">Routing and VPN behavior</string>
+    <string name="miaomiao_rule_mode">Rule routing</string>
+    <string name="miaomiao_vpn_mode">VPN mode</string>
+    <string name="miaomiao_current_route">Current route</string>
+    <string name="miaomiao_login_for_usage">Sign in to view usage and expiry</string>
+    <string name="miaomiao_local_routes_available">Existing local routes remain available.</string>
+    <string name="miaomiao_remaining_traffic">Remaining</string>
+    <string name="miaomiao_valid_until">Valid until</string>
+    <string name="miaomiao_refresh_account">Refresh account</string>
+    <string name="miaomiao_long_term">Long-term</string>
+    <string name="miaomiao_not_tested">Not tested</string>
 
     <string name="miaomiao_account_title">Account and plans</string>
     <string name="miaomiao_login_title">Welcome back</string>

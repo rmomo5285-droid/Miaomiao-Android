@@ -58,7 +58,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.v2ray.ang.R
-import com.v2ray.ang.extension.toTrafficString
 import com.v2ray.ang.ui.base.BaseComponentActivity
 import com.v2ray.ang.ui.compose.AppTopBar
 import com.v2ray.ang.util.Utils
@@ -432,8 +431,8 @@ private fun SubscriptionOverview(
                 Text(
                     text = stringResource(
                         R.string.miaomiao_traffic_usage,
-                        used.toTrafficString(),
-                        transferLimit.toTrafficString(),
+                        formatAccountTrafficBytes(used),
+                        formatAccountTrafficBytes(transferLimit),
                     ),
                     style = MaterialTheme.typography.bodyMedium,
                 )

@@ -138,6 +138,18 @@ class MiaomiaoAccountViewModel(application: Application) : AndroidViewModel(appl
         }
     }
 
+    fun restoreSessionAndRefresh() {
+        viewModelScope.launch {
+            accountOperationMutex.withLock {
+                val restored = accountRepository.restoreLocalSession()
+                mutableUiState.update { it.copy(account = restored) }
+                if (restored.authenticated) {
+                    refreshAccount(forceSubscriptionRefresh = false)
+                }
+            }
+        }
+    }
+
     fun logout() {
         viewModelScope.launch {
             accountOperationMutex.withLock {

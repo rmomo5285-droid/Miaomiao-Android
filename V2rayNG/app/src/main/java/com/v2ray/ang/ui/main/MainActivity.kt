@@ -31,6 +31,7 @@ import com.v2ray.ang.ui.AboutActivity
 import com.v2ray.ang.ui.backup.BackupActivity
 import com.v2ray.ang.ui.base.HelperBaseComponentActivity
 import com.v2ray.ang.ui.account.MiaomiaoAccountActivity
+import com.v2ray.ang.ui.account.MiaomiaoAccountViewModel
 import com.v2ray.ang.ui.logcat.LogcatActivity
 import com.v2ray.ang.ui.perappproxy.PerAppProxyActivity
 import com.v2ray.ang.ui.routing.RoutingSettingActivity
@@ -67,6 +68,7 @@ class MainActivity : HelperBaseComponentActivity() {
     private val mainViewModel: MainViewModel by viewModels {
         MainViewModel.Factory(application, MainRepository(application as AngApplication))
     }
+    private val accountViewModel: MiaomiaoAccountViewModel by viewModels()
 
     private val requestVpnPermission =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
@@ -113,8 +115,10 @@ class MainActivity : HelperBaseComponentActivity() {
     override fun ScreenContent() {
         val pendingMigrationNotice by migrationNotice.collectAsStateWithLifecycle()
         val pendingClientUpdate by clientUpdate.collectAsStateWithLifecycle()
+        val accountUiState by accountViewModel.uiState.collectAsStateWithLifecycle()
         MainScreen(
             mainViewModel = mainViewModel,
+            accountState = accountUiState.account,
             onAction = { action ->
                 when (action) {
                     MainAction.ToggleService -> handleFabAction()
@@ -133,6 +137,7 @@ class MainActivity : HelperBaseComponentActivity() {
                 }
             },
             onNavigate = { route -> navigateTo(route) },
+            onRefreshAccount = accountViewModel::refresh,
             migrationNotice = pendingMigrationNotice,
             onDismissMigrationNotice = {
                 EndpointMigrationNoticeStore.dismissPending()
@@ -146,6 +151,7 @@ class MainActivity : HelperBaseComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        accountViewModel.restoreSessionAndRefresh()
         migrationNotice.value = EndpointMigrationNoticeStore.pendingNotice()
         clientUpdate.value = EndpointClientUpdatePromptStore.pendingAndroid(
             MiaomiaoEndpointUpdater.current(),
@@ -182,6 +188,7 @@ class MainActivity : HelperBaseComponentActivity() {
     private val accountActivityLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             mainViewModel.onAction(MainAction.RefreshGroups)
+            accountViewModel.restoreSessionAndRefresh()
         }
 
     private fun shareToClipboard(guid: String): Boolean =
@@ -198,7 +205,7 @@ class MainActivity : HelperBaseComponentActivity() {
     }
 
     private fun navigateTo(destination: String) {
-        if (destination == "account") {
+        if (destination == "account" || destination == "plans") {
             accountActivityLauncher.launch(Intent(this, MiaomiaoAccountActivity::class.java))
             return
         }

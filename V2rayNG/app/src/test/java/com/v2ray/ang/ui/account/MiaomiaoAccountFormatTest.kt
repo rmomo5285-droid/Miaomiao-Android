@@ -11,4 +11,15 @@ class MiaomiaoAccountFormatTest {
         assertEquals("1.00 TB", formatPlanTransferGigabytes(1024, Locale.US))
         assertEquals("1.50 TB", formatPlanTransferGigabytes(1536, Locale.US))
     }
+
+    @Test
+    fun accountTrafficAlwaysDisplaysInGigabytes() {
+        val bytesPerGigabyte = 1024L * 1024L * 1024L
+        assertEquals("800.0 GB", formatAccountTrafficBytes(800L * bytesPerGigabyte, Locale.US))
+        assertEquals(
+            "800.0 GB",
+            formatAccountTrafficBytes(800L * bytesPerGigabyte * 1024L, Locale.US),
+        )
+        assertEquals("1.50 GB", formatAccountTrafficBytes(bytesPerGigabyte + bytesPerGigabyte / 2L, Locale.US))
+    }
 }
