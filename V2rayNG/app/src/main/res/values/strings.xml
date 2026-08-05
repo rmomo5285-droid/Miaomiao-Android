@@ -509,6 +509,8 @@
     <string name="miaomiao_rule_mode">Rule routing</string>
     <string name="miaomiao_vpn_mode">VPN mode</string>
     <string name="miaomiao_current_route">Current route</string>
+    <string name="miaomiao_test_current_connectivity">Test current route connectivity</string>
+    <string name="miaomiao_test_all_connectivity">Test all route connectivity</string>
     <string name="miaomiao_login_for_usage">Sign in to view usage and expiry</string>
     <string name="miaomiao_local_routes_available">Existing local routes remain available.</string>
     <string name="miaomiao_remaining_traffic">Remaining</string>

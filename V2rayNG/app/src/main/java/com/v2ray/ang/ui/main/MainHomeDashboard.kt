@@ -59,6 +59,7 @@ fun MainHomeDashboard(
     onOpenNotices: () -> Unit,
     onRefreshAccount: () -> Unit,
     onOpenRoutes: () -> Unit,
+    onTestCurrent: () -> Unit,
     onOpenRouting: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
@@ -242,6 +243,20 @@ fun MainHomeDashboard(
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                 )
+                IconButton(
+                    onClick = onTestCurrent,
+                    enabled = selectedServer != null && isRunning,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_connectivity_test_24dp),
+                        contentDescription = stringResource(R.string.miaomiao_test_current_connectivity),
+                        tint = if (selectedServer != null && isRunning) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                }
                 Icon(
                     painter = painterResource(R.drawable.ic_expand_more_24dp),
                     contentDescription = null,

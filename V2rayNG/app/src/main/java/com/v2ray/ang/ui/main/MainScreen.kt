@@ -340,6 +340,7 @@ fun MainScreen(
                         onOpenNotices = { onNavigate("account") },
                         onRefreshAccount = onRefreshAccount,
                         onOpenRoutes = { selectedDestination = MainDestination.ROUTES },
+                        onTestCurrent = { onAction(MainAction.TestCurrentServer) },
                         onOpenRouting = { onNavigate("routing_setting") },
                         onOpenSettings = { onNavigate("settings") },
                     )

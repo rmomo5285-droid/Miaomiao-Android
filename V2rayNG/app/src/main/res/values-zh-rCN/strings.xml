@@ -496,6 +496,8 @@
     <string name="miaomiao_rule_mode">规则分流</string>
     <string name="miaomiao_vpn_mode">VPN 模式</string>
     <string name="miaomiao_current_route">当前线路</string>
+    <string name="miaomiao_test_current_connectivity">测试当前线路连通性</string>
+    <string name="miaomiao_test_all_connectivity">测试全部线路连通性</string>
     <string name="miaomiao_login_for_usage">登录后查看流量与有效期</string>
     <string name="miaomiao_local_routes_available">本机已有线路仍可继续使用</string>
     <string name="miaomiao_remaining_traffic">剩余流量</string>

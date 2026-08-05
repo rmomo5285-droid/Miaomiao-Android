@@ -80,6 +80,12 @@ fun MainTopBar(
                         contentDescription = stringResource(R.string.miaomiao_account_title),
                     )
                 }
+                IconButton(onClick = { onAction(MainAction.TestRealAllServers) }) {
+                    Icon(
+                        painterResource(R.drawable.ic_connectivity_test_24dp),
+                        contentDescription = stringResource(R.string.miaomiao_test_all_connectivity),
+                    )
+                }
                 IconButton(onClick = { onSearchToggle(true) }) {
                     Icon(painterResource(R.drawable.ic_search_24dp), contentDescription = "filter")
                 }
