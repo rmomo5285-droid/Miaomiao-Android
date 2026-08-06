@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -36,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.entities.ProfileItem
+import com.v2ray.ang.ui.account.MiaomiaoRichText
 import com.v2ray.ang.ui.compose.QRCodeDialog
 import com.v2ray.ang.xboard.EndpointClientUpdate
 import com.v2ray.ang.xboard.XBoardAccountState
@@ -260,7 +262,12 @@ fun MainScreen(
                     },
                 )
             },
-            text = { Text(ordinaryNotice.content) },
+            text = {
+                MiaomiaoRichText(
+                    source = ordinaryNotice.content,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
             confirmButton = {
                 TextButton(onClick = { onDismissOrdinaryNotice(ordinaryNotice) }) {
                     Text(stringResource(android.R.string.ok))

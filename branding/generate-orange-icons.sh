@@ -11,7 +11,7 @@ test -f "$source_icon"
 densities=(mdpi hdpi xhdpi xxhdpi xxxhdpi)
 legacy_sizes=(48 72 96 144 192)
 foreground_sizes=(108 162 216 324 432)
-safe_sizes=(76 113 151 227 302)
+safe_sizes=(66 99 132 198 264)
 
 for i in "${!densities[@]}"; do
   density=${densities[$i]}
@@ -21,7 +21,7 @@ for i in "${!densities[@]}"; do
   target="$res/mipmap-$density"
 
   convert -size "${legacy}x${legacy}" 'xc:#101216' \
-    \( "$source_icon" -resize "$((legacy * 84 / 100))x$((legacy * 84 / 100))" \) \
+    \( "$source_icon" -resize "$((legacy * 76 / 100))x$((legacy * 76 / 100))" \) \
     -gravity center -composite -strip "$target/ic_launcher.png"
   cp "$target/ic_launcher.png" "$target/ic_launcher_round.png"
   convert -size "${foreground}x${foreground}" xc:none \

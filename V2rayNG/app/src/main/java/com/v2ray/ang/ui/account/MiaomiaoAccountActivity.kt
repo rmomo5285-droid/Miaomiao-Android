@@ -2,7 +2,6 @@ package com.v2ray.ang.ui.account
 
 import android.content.Intent
 import android.os.Bundle
-import android.text.Html
 import androidx.activity.viewModels
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -70,6 +69,7 @@ import com.v2ray.ang.xboard.XBoardOperationState
 import com.v2ray.ang.xboard.XBoardPaymentMethod
 import com.v2ray.ang.xboard.XBoardPlan
 import com.v2ray.ang.xboard.XBoardInvitePolicy
+import com.v2ray.ang.xboard.XBoardSubscription
 import java.text.DateFormat
 import java.util.Date
 import java.util.Locale
@@ -566,11 +566,11 @@ private fun SubscriptionOverview(
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = if (subscription?.planId != null) {
-                        stringResource(R.string.miaomiao_plan_id, subscription.planId)
-                    } else {
-                        stringResource(R.string.miaomiao_no_plan)
-                    },
+                    text = currentPlanName(
+                        subscription = subscription,
+                        plans = account.plans,
+                        fallback = stringResource(R.string.miaomiao_no_plan),
+                    ),
                     style = MaterialTheme.typography.labelLarge,
                 )
             }
@@ -671,14 +671,8 @@ private fun PlanCard(
                     )
                 }
             }
-            plainText(plan.content)?.let { content ->
-                Text(
-                    text = content,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 4,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            plan.content?.takeIf(String::isNotBlank)?.let { content ->
+                MiaomiaoRichText(source = content, modifier = Modifier.fillMaxWidth())
             }
             if (cycles.isEmpty()) {
                 EmptyText(stringResource(R.string.miaomiao_plan_unavailable))
@@ -743,12 +737,8 @@ private fun NoticeItem(notice: XBoardNotice) {
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
-        plainText(notice.content)?.let { content ->
-            Text(
-                text = content,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        notice.content.takeIf(String::isNotBlank)?.let { content ->
+            MiaomiaoRichText(source = content, modifier = Modifier.fillMaxWidth())
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
@@ -862,8 +852,14 @@ private fun formatExpiry(epochSeconds: Long?): String {
     }.getOrDefault("-")
 }
 
-private fun plainText(html: String?): String? {
-    val source = html?.trim().orEmpty()
-    if (source.isEmpty()) return null
-    return Html.fromHtml(source, Html.FROM_HTML_MODE_LEGACY).toString().trim().ifEmpty { null }
+internal fun currentPlanName(
+    subscription: XBoardSubscription?,
+    plans: List<XBoardPlan>,
+    fallback: String,
+): String {
+    val planId = subscription?.planId ?: return fallback
+    return plans.firstOrNull { it.id == planId }
+        ?.name
+        ?.takeIf(String::isNotBlank)
+        ?: fallback
 }

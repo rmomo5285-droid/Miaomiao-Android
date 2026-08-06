@@ -5,7 +5,6 @@ import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
-import android.text.Html
 import android.view.KeyEvent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -193,9 +192,7 @@ class MainActivity : HelperBaseComponentActivity() {
             ordinaryNotice.value = XBoardNoticePromptStore.pending(notices)?.let { notice ->
                 notice.copy(
                     title = notice.title.trim(),
-                    content = Html.fromHtml(notice.content, Html.FROM_HTML_MODE_LEGACY)
-                        .toString()
-                        .trim(),
+                    content = notice.content.trim(),
                 )
             }
         }
@@ -224,7 +221,7 @@ class MainActivity : HelperBaseComponentActivity() {
     private val accountActivityLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             mainViewModel.onAction(MainAction.RefreshGroups)
-            accountViewModel.restoreSessionAndRefresh()
+            accountViewModel.restoreSessionAndRefresh(force = true)
             lifecycleScope.launch {
                 refreshOrdinaryNotice(MiaomiaoEndpointUpdater.current())
             }

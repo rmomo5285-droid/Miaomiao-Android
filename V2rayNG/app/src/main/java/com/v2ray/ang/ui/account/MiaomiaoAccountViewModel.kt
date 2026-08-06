@@ -71,6 +71,7 @@ class MiaomiaoAccountViewModel(application: Application) : AndroidViewModel(appl
     private val accountOperationMutex = Mutex()
     private var paymentPollingJob: Job? = null
     private var paymentPollingTradeNo: String? = null
+    private var lastAccountRefreshElapsedMillis = 0L
 
     init {
         var wasAuthenticated = mutableUiState.value.account.authenticated
@@ -141,12 +142,27 @@ class MiaomiaoAccountViewModel(application: Application) : AndroidViewModel(appl
         }
     }
 
-    fun restoreSessionAndRefresh() {
+    fun restoreSessionAndRefresh(force: Boolean = false) {
         viewModelScope.launch {
             accountOperationMutex.withLock {
-                val restored = accountRepository.restoreLocalSession()
-                mutableUiState.update { it.copy(account = restored) }
-                if (restored.authenticated) {
+                val current = accountRepository.state.value
+                val restored = if (current.authenticated) {
+                    current
+                } else {
+                    accountRepository.restoreLocalSession()
+                }
+                if (!mutableUiState.value.account.authenticated) {
+                    mutableUiState.update { it.copy(account = restored) }
+                }
+                val snapshot = mutableUiState.value.account
+                if (AccountRefreshPolicy.shouldRefresh(
+                        force = force,
+                        authenticated = restored.authenticated,
+                        hasSnapshot = snapshot.subscription != null || snapshot.plans.isNotEmpty(),
+                        lastRefreshElapsedMillis = lastAccountRefreshElapsedMillis,
+                        nowElapsedMillis = SystemClock.elapsedRealtime(),
+                    )
+                ) {
                     refreshAccount(forceSubscriptionRefresh = false)
                 }
             }
@@ -407,6 +423,7 @@ class MiaomiaoAccountViewModel(application: Application) : AndroidViewModel(appl
     ) {
         accountRepository.refreshAccount()
             .onSuccess { state ->
+                lastAccountRefreshElapsedMillis = SystemClock.elapsedRealtime()
                 accountRepository.fetchInviteInfo().onSuccess { info ->
                     mutableUiState.update { it.copy(inviteInfo = info, isLoadingInvite = false) }
                 }.onFailure {
