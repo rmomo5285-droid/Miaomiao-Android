@@ -1,7 +1,32 @@
 package com.v2ray.ang.xboard
 
+import com.google.gson.JsonDeserializationContext
+import com.google.gson.JsonDeserializer
 import com.google.gson.JsonElement
+import com.google.gson.annotations.JsonAdapter
 import com.google.gson.annotations.SerializedName
+import java.lang.reflect.Type
+
+class XBoardBooleanAdapter : JsonDeserializer<Boolean?> {
+    override fun deserialize(
+        json: JsonElement?,
+        typeOfT: Type?,
+        context: JsonDeserializationContext?,
+    ): Boolean? {
+        if (json == null || json.isJsonNull || !json.isJsonPrimitive) return null
+        val value = json.asJsonPrimitive
+        return when {
+            value.isBoolean -> value.asBoolean
+            value.isNumber -> value.asInt != 0
+            value.isString -> when (value.asString.trim().lowercase()) {
+                "1", "true", "yes", "on" -> true
+                "0", "false", "no", "off", "" -> false
+                else -> null
+            }
+            else -> null
+        }
+    }
+}
 
 data class XBoardSubscription(
     @SerializedName("plan_id") val planId: Int? = null,
@@ -29,7 +54,9 @@ data class XBoardPlan(
     @SerializedName("transfer_enable") val transferEnable: Long = 0L,
     @SerializedName("speed_limit") val speedLimit: Int? = null,
     @SerializedName("device_limit") val deviceLimit: Int? = null,
-    val renew: Int? = null,
+    @JsonAdapter(XBoardBooleanAdapter::class) val show: Boolean? = null,
+    @JsonAdapter(XBoardBooleanAdapter::class) val sell: Boolean? = null,
+    @JsonAdapter(XBoardBooleanAdapter::class) val renew: Boolean? = null,
     @SerializedName("month_price") val monthPrice: Long? = null,
     @SerializedName("quarter_price") val quarterPrice: Long? = null,
     @SerializedName("half_year_price") val halfYearPrice: Long? = null,
@@ -46,7 +73,7 @@ data class XBoardNotice(
     val content: String = "",
     @SerializedName("created_at") val createdAt: Long? = null,
     @SerializedName("updated_at") val updatedAt: Long? = null,
-    val show: Int? = null,
+    @JsonAdapter(XBoardBooleanAdapter::class) val show: Boolean? = null,
 )
 
 data class XBoardInviteCode(

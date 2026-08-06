@@ -98,7 +98,9 @@ class XBoardApiClient(
 
     override fun fetchPlans(token: String): List<XBoardPlan> {
         val data = dataElement(executeAuthenticatedGet(PATH_PLANS, token))
-        return requireArray(data, "plans").map { gson.fromJson(it, XBoardPlan::class.java) }
+        return requireArray(data, "plans")
+            .map { gson.fromJson(it, XBoardPlan::class.java) }
+            .filter { it.show != false && it.sell != false }
     }
 
     override fun fetchNotices(token: String): List<XBoardNotice> {

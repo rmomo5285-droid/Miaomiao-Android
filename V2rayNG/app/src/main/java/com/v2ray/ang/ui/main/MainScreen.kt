@@ -1,8 +1,10 @@
 package com.v2ray.ang.ui.main
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -32,10 +34,13 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.v2ray.ang.R
 import com.v2ray.ang.dto.entities.ProfileItem
+import com.v2ray.ang.ui.account.MiaomiaoRichText
 import com.v2ray.ang.ui.compose.QRCodeDialog
 import com.v2ray.ang.xboard.EndpointClientUpdate
+import com.v2ray.ang.xboard.XBoardAccountState
 import com.v2ray.ang.xboard.XBoardNotice
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -45,8 +50,10 @@ import kotlinx.coroutines.launch
 @Composable
 fun MainScreen(
     mainViewModel: MainViewModel,
+    accountState: XBoardAccountState,
     onAction: (MainAction) -> Unit,
     onNavigate: (String) -> Unit,
+    onRefreshAccount: () -> Unit,
     migrationNotice: String? = null,
     onDismissMigrationNotice: () -> Unit = {},
     clientUpdate: EndpointClientUpdate? = null,
@@ -59,7 +66,6 @@ fun MainScreen(
     val groups = uiState.groups
     val isLoading by mainViewModel.isLoading.collectAsStateWithLifecycle()
     val isRunning = uiState.isRunning
-    val displayText = uiState.statusText
     val selectedGuid = uiState.selectedGuid
     val doubleColumnDisplay = uiState.doubleColumnDisplay
     val confirmRemove = uiState.confirmRemove
@@ -73,6 +79,13 @@ fun MainScreen(
     var showDelDuplicateConfirm by remember { mutableStateOf(false) }
     var showDelInvalidConfirm by remember { mutableStateOf(false) }
     var showRemoveConfirm by remember { mutableStateOf<String?>(null) }
+    var selectedDestination by rememberSaveable { mutableStateOf(MainDestination.HOME) }
+
+    val activeServersFlow = remember(uiState.selectedGroupId) {
+        mainViewModel.serversForGroup(uiState.selectedGroupId)
+    }
+    val activeServers by activeServersFlow.collectAsStateWithLifecycle()
+    val selectedServer = activeServers.firstOrNull { it.guid == selectedGuid }
 
     var shareTarget by remember { mutableStateOf<Triple<String, ProfileItem, Boolean>?>(null) }
     val removeServer: (String) -> Unit = { guid ->
@@ -249,7 +262,12 @@ fun MainScreen(
                     },
                 )
             },
-            text = { Text(ordinaryNotice.content) },
+            text = {
+                MiaomiaoRichText(
+                    source = ordinaryNotice.content,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
             confirmButton = {
                 TextButton(onClick = { onDismissOrdinaryNotice(ordinaryNotice) }) {
                     Text(stringResource(android.R.string.ok))
@@ -272,40 +290,69 @@ fun MainScreen(
         Scaffold(
             contentWindowInsets = ScaffoldDefaults.contentWindowInsets,
             topBar = {
-                MainTopBar(
-                    isLoading = isLoading,
-                    showSearch = showSearch,
-                    searchQuery = searchQuery,
-                    onSearchQueryChange = { query: String ->
-                        searchQuery = query
-                        onAction(MainAction.Search(query))
-                    },
-                    onSearchClose = {
-                        searchQuery = ""
-                        onAction(MainAction.Search(""))
-                        showSearch = false
-                    },
-                    onSearchToggle = { show: Boolean -> showSearch = show },
-                    onMenuClick = { scope.launch { drawerState.open() } },
-                    onAccountClick = { onNavigate("account") },
-                    onAction = onAction,
-                    onDelAllConfig = { showDelAllConfirm = true },
-                    onDelDuplicateConfig = { showDelDuplicateConfirm = true },
-                    onDelInvalidConfig = { showDelInvalidConfirm = true }
-                )
+                if (selectedDestination == MainDestination.ROUTES) {
+                    MainTopBar(
+                        isLoading = isLoading,
+                        showSearch = showSearch,
+                        searchQuery = searchQuery,
+                        onSearchQueryChange = { query: String ->
+                            searchQuery = query
+                            onAction(MainAction.Search(query))
+                        },
+                        onSearchClose = {
+                            searchQuery = ""
+                            onAction(MainAction.Search(""))
+                            showSearch = false
+                        },
+                        onSearchToggle = { show: Boolean -> showSearch = show },
+                        onMenuClick = { scope.launch { drawerState.open() } },
+                        onAccountClick = { onNavigate("account") },
+                        onAction = onAction,
+                        onDelAllConfig = { showDelAllConfirm = true },
+                        onDelDuplicateConfig = { showDelDuplicateConfirm = true },
+                        onDelInvalidConfig = { showDelInvalidConfirm = true }
+                    )
+                }
             },
             bottomBar = {
                 MainBottomBar(
-                    displayText = displayText,
-                    isRunning = isRunning,
-                    onAction = onAction
+                    selected = selectedDestination,
+                    onSelect = { destination ->
+                        when (destination) {
+                            MainDestination.HOME,
+                            MainDestination.ROUTES -> selectedDestination = destination
+                            MainDestination.PLANS -> onNavigate("plans")
+                            MainDestination.ACCOUNT -> onNavigate("account")
+                            MainDestination.SETTINGS -> onNavigate("settings")
+                        }
+                    },
                 )
             },
             floatingActionButton = {},
         ) { innerPadding ->
             val layoutDirection = LocalLayoutDirection.current
 
-            if (groups.isNotEmpty()) {
+            if (selectedDestination == MainDestination.HOME) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                ) {
+                    MainHomeDashboard(
+                        account = accountState,
+                        isRunning = isRunning,
+                        selectedServer = selectedServer,
+                        onToggleService = { onAction(MainAction.ToggleService) },
+                        onOpenAccount = { onNavigate("account") },
+                        onOpenNotices = { onNavigate("account") },
+                        onRefreshAccount = onRefreshAccount,
+                        onOpenRoutes = { selectedDestination = MainDestination.ROUTES },
+                        onTestCurrent = { onAction(MainAction.TestCurrentServer) },
+                        onOpenRouting = { onNavigate("routing_setting") },
+                        onOpenSettings = { onNavigate("settings") },
+                    )
+                }
+            } else if (groups.isNotEmpty()) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -358,7 +405,7 @@ fun MainScreen(
                                 start = 0.dp,
                                 top = 0.dp,
                                 end = 0.dp,
-                                bottom = 80.dp
+                                bottom = 16.dp
                             )
                         )
                     }

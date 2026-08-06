@@ -9,7 +9,7 @@ class XBoardNoticePromptPolicyTest {
     fun selectsNewestVisibleUndismissedNoticeById() {
         val notices = listOf(
             XBoardNotice(id = 7, title = "old"),
-            XBoardNotice(id = 9, title = "hidden", show = 0),
+            XBoardNotice(id = 9, title = "hidden", show = false),
             XBoardNotice(id = 8, title = "new"),
         )
 

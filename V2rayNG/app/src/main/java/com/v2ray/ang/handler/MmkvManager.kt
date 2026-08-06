@@ -420,6 +420,17 @@ object MmkvManager {
         return subscriptions
     }
 
+    /** Removes the legacy empty Default tab without touching any ungrouped profiles. */
+    fun removeEmptyDefaultSubscription(): Boolean {
+        if (decodeServerList(DEFAULT_SUBSCRIPTION_ID).isNotEmpty()) return false
+
+        subStorage.remove(DEFAULT_SUBSCRIPTION_ID)
+        val subscriptions = decodeSubsList()
+        val removed = subscriptions.removeAll { it == DEFAULT_SUBSCRIPTION_ID }
+        if (removed) encodeSubsList(subscriptions)
+        return removed
+    }
+
     /**
      * Removes the subscription.
      *

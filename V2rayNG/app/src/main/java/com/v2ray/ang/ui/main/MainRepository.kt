@@ -121,17 +121,8 @@ class MainRepository(
     override fun getString(resId: Int, vararg formatArgs: Any): String = app.getString(resId, *formatArgs)
 
     override fun getSubscriptions(): List<SubscriptionCache> {
-        val result = mutableListOf<SubscriptionCache>()
-        if (isGroupAllDisplayEnabled()) {
-            result += SubscriptionCache(
-                guid = "",
-                subscription = SubscriptionItem().apply {
-                    remarks = app.getString(R.string.filter_config_all)
-                }
-            )
-        }
-        result += MmkvManager.decodeSubscriptions()
-        return result
+        MmkvManager.removeEmptyDefaultSubscription()
+        return MmkvManager.decodeSubscriptions()
     }
 
     override fun getSubscriptionItem(id: String): SubscriptionItem? =
