@@ -38,6 +38,25 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.net.URI
 
+private object MiaomiaoAccountSession {
+    val repository: XBoardRepository by lazy {
+        XBoardRepository(
+            service = XBoardApiClient(
+                endpointProvider = { MiaomiaoEndpointUpdater.current().apiEndpoints },
+            ),
+        )
+    }
+    val operationMutex = Mutex()
+
+    @Volatile
+    var lastRefreshElapsedMillis: Long = 0L
+
+    fun restoreState(): XBoardAccountState {
+        val current = repository.state.value
+        return if (current.authenticated) current else repository.restoreLocalSession()
+    }
+}
+
 data class MiaomiaoAccountUiState(
     val account: XBoardAccountState = XBoardAccountState(),
     val isPurchasing: Boolean = false,
@@ -55,23 +74,18 @@ data class MiaomiaoAccountUiState(
 
 class MiaomiaoAccountViewModel(application: Application) : AndroidViewModel(application) {
     private val endpointRepository = EndpointManifestRepository()
-    private val accountRepository = XBoardRepository(
-        service = XBoardApiClient(
-            endpointProvider = { endpointRepository.current().apiEndpoints },
-        ),
-    )
+    private val accountRepository = MiaomiaoAccountSession.repository
     private val mutableUiState = MutableStateFlow(
         MiaomiaoAccountUiState(
-            account = accountRepository.restoreLocalSession(),
+            account = MiaomiaoAccountSession.restoreState(),
             registrationUrl = endpointRepository.current().registrationUrl,
         ),
     )
     val uiState: StateFlow<MiaomiaoAccountUiState> = mutableUiState.asStateFlow()
     private val pendingPaymentStore: PendingPaymentStore = MmkvPendingPaymentStore
-    private val accountOperationMutex = Mutex()
+    private val accountOperationMutex = MiaomiaoAccountSession.operationMutex
     private var paymentPollingJob: Job? = null
     private var paymentPollingTradeNo: String? = null
-    private var lastAccountRefreshElapsedMillis = 0L
 
     init {
         var wasAuthenticated = mutableUiState.value.account.authenticated
@@ -103,16 +117,20 @@ class MiaomiaoAccountViewModel(application: Application) : AndroidViewModel(appl
                     }
                 }
             }
-            val result = MiaomiaoEndpointUpdater.refreshNow()
             mutableUiState.update {
-                it.copy(
-                    registrationUrl = result.active.registrationUrl,
-                    migrationNotice = EndpointMigrationNoticeStore.pendingNotice(),
-                )
+                it.copy(migrationNotice = EndpointMigrationNoticeStore.pendingNotice())
             }
             if (mutableUiState.value.account.authenticated) {
                 accountOperationMutex.withLock {
-                    if (accountRepository.state.value.authenticated) {
+                    val snapshot = accountRepository.state.value
+                    if (AccountRefreshPolicy.shouldRefresh(
+                            force = false,
+                            authenticated = snapshot.authenticated,
+                            hasSnapshot = snapshot.subscription != null || snapshot.plans.isNotEmpty(),
+                            lastRefreshElapsedMillis = MiaomiaoAccountSession.lastRefreshElapsedMillis,
+                            nowElapsedMillis = SystemClock.elapsedRealtime(),
+                        )
+                    ) {
                         refreshAccount(forceSubscriptionRefresh = false)
                     }
                 }
@@ -159,7 +177,7 @@ class MiaomiaoAccountViewModel(application: Application) : AndroidViewModel(appl
                         force = force,
                         authenticated = restored.authenticated,
                         hasSnapshot = snapshot.subscription != null || snapshot.plans.isNotEmpty(),
-                        lastRefreshElapsedMillis = lastAccountRefreshElapsedMillis,
+                        lastRefreshElapsedMillis = MiaomiaoAccountSession.lastRefreshElapsedMillis,
                         nowElapsedMillis = SystemClock.elapsedRealtime(),
                     )
                 ) {
@@ -423,7 +441,7 @@ class MiaomiaoAccountViewModel(application: Application) : AndroidViewModel(appl
     ) {
         accountRepository.refreshAccount()
             .onSuccess { state ->
-                lastAccountRefreshElapsedMillis = SystemClock.elapsedRealtime()
+                MiaomiaoAccountSession.lastRefreshElapsedMillis = SystemClock.elapsedRealtime()
                 accountRepository.fetchInviteInfo().onSuccess { info ->
                     mutableUiState.update { it.copy(inviteInfo = info, isLoadingInvite = false) }
                 }.onFailure {
@@ -452,8 +470,15 @@ class MiaomiaoAccountViewModel(application: Application) : AndroidViewModel(appl
     private suspend fun syncManagedSubscription(subscriptionUrl: String?, forceRefresh: Boolean) {
         val url = subscriptionUrl?.takeIf(::isSafeHttpsUrl) ?: return
         val updateResult = withContext(Dispatchers.IO) {
-            val item = MmkvManager.decodeSubscription(AppConfig.MIAOMIAO_MANAGED_SUBSCRIPTION_ID)
+            val existing = MmkvManager.decodeSubscription(AppConfig.MIAOMIAO_MANAGED_SUBSCRIPTION_ID)
+            val shouldReschedule = ManagedSubscriptionSchedulePolicy.shouldReschedule(
+                existing = existing,
+                url = url,
+                intervalMinutes = MANAGED_UPDATE_INTERVAL_MINUTES,
+            )
+            val item = existing
                 ?: SubscriptionItem(remarks = MANAGED_SUBSCRIPTION_REMARKS)
+            if (item.url != url) item.lastUpdated = -1L
             item.remarks = MANAGED_SUBSCRIPTION_REMARKS
             item.url = url
             item.enabled = true
@@ -468,8 +493,12 @@ class MiaomiaoAccountViewModel(application: Application) : AndroidViewModel(appl
             } else {
                 null
             }
-            // A forced first download must finish before WorkManager can race it.
-            SubscriptionUpdater.syncOne(subId = AppConfig.MIAOMIAO_MANAGED_SUBSCRIPTION_ID)
+            // Successful manual updates reschedule themselves after persisting lastUpdated.
+            if ((!forceRefresh && shouldReschedule) ||
+                (forceRefresh && result?.successCount != 1 && shouldReschedule)
+            ) {
+                SubscriptionUpdater.syncOne(subId = AppConfig.MIAOMIAO_MANAGED_SUBSCRIPTION_ID)
+            }
             result
         }
         if (forceRefresh && updateResult?.successCount != 1) {

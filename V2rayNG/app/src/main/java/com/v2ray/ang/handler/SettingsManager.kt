@@ -44,6 +44,7 @@ object SettingsManager {
         //ensureDefaultSubscription()
         initRoutingRulesets(context)
         migrateServerListToSubscriptions()
+        MmkvManager.removeEmptyDefaultSubscription()
         migrateHysteria2PinSHA256()
     }
 
@@ -233,28 +234,12 @@ object SettingsManager {
             .toList()
     }
 
-    /**
-     * Removes the subscription.
-     * If there are no remaining subscriptions,
-     * it creates a new default subscription to ensure that ungroup
-     **/
+    /** Removes the subscription without recreating an empty Default tab. */
     fun removeSubscriptionWithDefault(subid: String) {
         if (subid == AppConfig.MIAOMIAO_MANAGED_SUBSCRIPTION_ID) return
 
         SubscriptionUpdater.cancelOne(subId = subid)
-        // Remove the subscription
         removeSubscription(subid)
-
-        // After removal, check if there are any subscriptions left. If not, create a default subscription.
-        val subsList2 = decodeSubsList()
-        if (subsList2.isNotEmpty()) {
-            return
-        }
-
-        val defaultSub = SubscriptionItem(
-            remarks = "Default",
-        )
-        encodeSubscription(DEFAULT_SUBSCRIPTION_ID, defaultSub)
     }
 
     /**
@@ -551,9 +536,6 @@ object SettingsManager {
             return
         }
 
-        // Ensure default subscription exists before migration
-        ensureDefaultSubscription()
-
         // Read existing server list from legacy KEY_ANG_CONFIGS
         val oldJson = MmkvManager.readLegacyServerList()
         if (oldJson.isNullOrBlank()) {
@@ -575,6 +557,10 @@ object SettingsManager {
             val subId = config.subscriptionId.ifEmpty { DEFAULT_SUBSCRIPTION_ID }
 
             subscriptionServerMap.getOrPut(subId) { mutableListOf() }.add(guid)
+        }
+
+        if (subscriptionServerMap.containsKey(DEFAULT_SUBSCRIPTION_ID)) {
+            ensureDefaultSubscription()
         }
 
         // Update each subscription's serverList (including default subscription)

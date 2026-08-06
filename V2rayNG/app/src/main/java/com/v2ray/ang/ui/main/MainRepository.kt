@@ -121,6 +121,7 @@ class MainRepository(
     override fun getString(resId: Int, vararg formatArgs: Any): String = app.getString(resId, *formatArgs)
 
     override fun getSubscriptions(): List<SubscriptionCache> {
+        MmkvManager.removeEmptyDefaultSubscription()
         return MmkvManager.decodeSubscriptions()
     }
 

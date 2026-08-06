@@ -2,6 +2,7 @@ package com.v2ray.ang.ui.account
 
 import com.v2ray.ang.xboard.XBoardPlan
 import com.v2ray.ang.xboard.XBoardSubscription
+import com.v2ray.ang.dto.entities.SubscriptionItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -59,6 +60,31 @@ class MiaomiaoAccountPresentationTest {
                 hasSnapshot = true,
                 lastRefreshElapsedMillis = 1_000L,
                 nowElapsedMillis = 2_000L,
+            ),
+        )
+    }
+
+    @Test
+    fun managedSubscriptionScheduleIsKeptWhenNothingChanged() {
+        val existing = SubscriptionItem(
+            url = "https://example.com/subscription",
+            enabled = true,
+            autoUpdate = true,
+            updateInterval = 48L * 60L,
+        )
+
+        assertFalse(
+            ManagedSubscriptionSchedulePolicy.shouldReschedule(
+                existing = existing,
+                url = existing.url,
+                intervalMinutes = existing.updateInterval,
+            ),
+        )
+        assertTrue(
+            ManagedSubscriptionSchedulePolicy.shouldReschedule(
+                existing = existing,
+                url = "https://example.com/new-subscription",
+                intervalMinutes = existing.updateInterval,
             ),
         )
     }

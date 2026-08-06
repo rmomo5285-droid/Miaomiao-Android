@@ -70,6 +70,7 @@ class MainActivity : HelperBaseComponentActivity() {
     private val migrationNotice = MutableStateFlow<String?>(null)
     private val clientUpdate = MutableStateFlow<EndpointClientUpdate?>(null)
     private val ordinaryNotice = MutableStateFlow<XBoardNotice?>(null)
+    private var managedSubscriptionUpdatedAtBeforeAccount = Long.MIN_VALUE
 
     private val mainViewModel: MainViewModel by viewModels {
         MainViewModel.Factory(application, MainRepository(application as AngApplication))
@@ -220,11 +221,13 @@ class MainActivity : HelperBaseComponentActivity() {
 
     private val accountActivityLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            mainViewModel.onAction(MainAction.RefreshGroups)
-            accountViewModel.restoreSessionAndRefresh(force = true)
-            lifecycleScope.launch {
-                refreshOrdinaryNotice(MiaomiaoEndpointUpdater.current())
+            val updatedAt = MmkvManager.decodeSubscription(
+                AppConfig.MIAOMIAO_MANAGED_SUBSCRIPTION_ID,
+            )?.lastUpdated ?: Long.MIN_VALUE
+            if (updatedAt != managedSubscriptionUpdatedAtBeforeAccount) {
+                mainViewModel.onAction(MainAction.RefreshGroups)
             }
+            accountViewModel.restoreSessionAndRefresh()
         }
 
     private fun shareToClipboard(guid: String): Boolean =
@@ -242,6 +245,9 @@ class MainActivity : HelperBaseComponentActivity() {
 
     private fun navigateTo(destination: String) {
         if (destination == "account" || destination == "plans") {
+            managedSubscriptionUpdatedAtBeforeAccount = MmkvManager.decodeSubscription(
+                AppConfig.MIAOMIAO_MANAGED_SUBSCRIPTION_ID,
+            )?.lastUpdated ?: Long.MIN_VALUE
             accountActivityLauncher.launch(Intent(this, MiaomiaoAccountActivity::class.java))
             return
         }
